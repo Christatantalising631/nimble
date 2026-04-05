@@ -1,4 +1,5 @@
-use cranelift::prelude::*;
+use super::codegen;
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 

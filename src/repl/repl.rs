@@ -94,7 +94,7 @@ fn execute_line(line: &str, vm: &mut VM) -> Result<(), ()> {
     let mut compiler = Compiler::new("repl".into());
     let chunk = compiler.compile_stmts(&stmts);
 
-    match vm.run(Arc::new(chunk)) {
+    match vm.run(Arc::clone(&chunk)) {
         Ok(Value::Null) => {}
         Ok(val) => println!("{:?}", val),
         Err(e) => {

@@ -1,7 +1,6 @@
-/// Compact, cache-friendly bytecode definitions for the future VM.
+/// Compact, cache-friendly bytecode definitions for the register-based VM.
 
-/// A fixed source location for debugging and profiling.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct SourceLocation {
     pub line: u32,
     pub column: u32,
@@ -11,7 +10,7 @@ pub struct SourceLocation {
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Opcode {
-    LoadConst,
+    LoadConst = 0,
     LoadLocal,
     StoreLocal,
     Move,
@@ -25,9 +24,14 @@ pub enum Opcode {
     JumpIfFalse,
     Call,
     Return,
+    // Extensions for builtins and globals needed for parity
+    LoadGlobal,
+    StoreGlobal,
 }
 
 /// A single 32-bit instruction with four 8-bit fields.
+/// [ opcode: 8 | dst: 8 | src1: 8 | src2: 8 ]
+/// Immediates (u16) are packed into src1/src2.
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Instruction {
@@ -38,6 +42,16 @@ pub struct Instruction {
 }
 
 impl Instruction {
+    #[inline(always)]
+    pub const fn new(opcode: Opcode, dst: u8, src1: u8, src2: u8) -> Self {
+        Self {
+            opcode,
+            dst,
+            src1,
+            src2,
+        }
+    }
+
     /// Pack an immediate in the src1/src2 slots.
     #[inline(always)]
     pub const fn with_imm(opcode: Opcode, dst: u8, imm: u16) -> Self {
@@ -56,29 +70,39 @@ impl Instruction {
     }
 }
 
-/// Lightweight constant pool used by the compiler.
-#[derive(Clone, Debug)]
-pub enum Constant {
-    Int(i64),
-    Float(f64),
-    Bool(bool),
-    Str(String),
-    Null,
-}
+use crate::vm::Value;
 
 /// A chunk of bytecode with constants and debug metadata.
+#[derive(Clone, Debug)]
 pub struct Chunk {
+    pub name: String,
     pub code: Vec<Instruction>,
-    pub constants: Vec<Constant>,
+    pub constants: Vec<Value>,
+    pub names: Vec<String>,
     pub debug_info: Vec<SourceLocation>,
 }
 
 impl Chunk {
-    pub fn new() -> Self {
+    pub fn new(name: String) -> Self {
         Self {
+            name,
             code: Vec::new(),
             constants: Vec::new(),
+            names: Vec::new(),
             debug_info: Vec::new(),
         }
     }
+
+    pub fn add_constant(&mut self, val: Value) -> u16 {
+        self.constants.push(val);
+        (self.constants.len() - 1) as u16
+    }
+
+    pub fn add_name(&mut self, name: String) -> u16 {
+        self.names.push(name);
+        (self.names.len() - 1) as u16
+    }
 }
+
+pub type FunctionChunk = Chunk;
+pub type Reg = u8;

@@ -1,10 +1,12 @@
 pub mod compiler;
-pub mod compiler_legacy;
 pub mod error;
+pub mod ir;
 pub mod jit;
 pub mod lexer;
 pub mod modules;
+pub mod optimizer;
 pub mod parser;
+pub mod profiler;
 pub mod repl;
 pub mod types;
 pub mod vm;

@@ -1,15 +1,13 @@
 use clap::{Parser as ClapParser, Subcommand};
 use colored::Colorize;
 use miette::Report;
-use nimble_core::compiler::Compiler;
-use nimble_core::error::{
-    install_diagnostic_hook, print_diagnostic, report_for_span, DiagnosticKind,
-};
-use nimble_core::lexer::Lexer;
-use nimble_core::parser::{ast::Stmt, Parser};
-use nimble_core::repl;
-use nimble_core::types::infer::Inferencer;
-use nimble_core::vm::VM;
+use nimble::compiler::Compiler;
+use nimble::error::{install_diagnostic_hook, print_diagnostic, report_for_span, DiagnosticKind};
+use nimble::lexer::Lexer;
+use nimble::parser::{ast::Stmt, Parser};
+use nimble::repl;
+use nimble::types::infer::Inferencer;
+use nimble::vm::VM;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -153,7 +151,7 @@ fn run_source(source: &str, path: Option<&PathBuf>) {
             .parent()
             .unwrap_or_else(|| std::path::Path::new("."))
             .to_path_buf();
-        match vm.run_with_dir(Arc::new(chunk), dir) {
+        match vm.run_with_dir(Arc::clone(&chunk), dir) {
             Ok(_) => {}
             Err(e) => print_diagnostic(
                 Report::msg(format!("Runtime error: {}", e)),
@@ -163,7 +161,7 @@ fn run_source(source: &str, path: Option<&PathBuf>) {
         }
         return;
     }
-    match vm.run(Arc::new(chunk)) {
+    match vm.run(Arc::clone(&chunk)) {
         Ok(_) => {}
         Err(e) => print_diagnostic(
             Report::msg(format!("Runtime error: {}", e)),

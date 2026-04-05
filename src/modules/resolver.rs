@@ -70,6 +70,6 @@ impl ModuleResolver {
         };
         let mut compiler = Compiler::new(name.to_string());
         let chunk = compiler.compile_stmts(&stmts);
-        Ok(Arc::new(chunk))
+        Ok(chunk)
     }
 }

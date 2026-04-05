@@ -1,11 +1,7 @@
 use crate::lexer::Span;
 use colored::{Color, Colorize};
-use miette::highlighters::SyntectHighlighter;
 use miette::{Diagnostic, GraphicalReportHandler, NamedSource, Report, SourceSpan};
-use once_cell::sync::Lazy;
 use std::sync::Once;
-use syntect::highlighting::{Theme, ThemeSet};
-use syntect::parsing::SyntaxSet;
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
@@ -43,7 +39,7 @@ impl ParseError {
 pub struct NimbleDiagnostic {
     message: String,
     #[source_code]
-    src: NamedSource<String>,
+    src: NamedSource,
     #[label("{label}")]
     span: SourceSpan,
     label: String,
@@ -51,20 +47,11 @@ pub struct NimbleDiagnostic {
     help: Option<String>,
 }
 
-static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
-static THEME: Lazy<Theme> =
-    Lazy::new(|| ThemeSet::load_defaults().themes["base16-eighties.dark"].clone());
 static DIAGNOSTIC_HOOK: Once = Once::new();
 
 pub fn install_diagnostic_hook() {
     DIAGNOSTIC_HOOK.call_once(|| {
-        let syntax = SYNTAX_SET.clone();
-        let theme = THEME.clone();
-        let _ = miette::set_hook(Box::new(move |_| {
-            Box::new(GraphicalReportHandler::new().with_syntax_highlighting(
-                SyntectHighlighter::new(syntax.clone(), theme.clone(), true),
-            ))
-        }));
+        let _ = miette::set_hook(Box::new(|_| Box::new(GraphicalReportHandler::new())));
     });
 }
 
@@ -125,7 +112,7 @@ pub fn report_for_span_with_help(
     help: Option<String>,
 ) -> Report {
     ensure_diagnostic_hook();
-    let src = NamedSource::new(name.to_string(), source.to_string()).with_language("nimble");
+    let src = NamedSource::new(name.to_string(), source.to_string());
     let source_span = span_to_source_span(source, span);
     Report::new(NimbleDiagnostic {
         message: message.into(),

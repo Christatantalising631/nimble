@@ -58,6 +58,7 @@ See [examples/README.md](examples/README.md) for the reorganized sample catalog 
 - [Getting Started](docs/getting-started.md)
 - [Syntax Reference](docs/syntax.md)
 - [Standard Library](docs/stdlib/)
+- [Benchmark Infos and More...](docs/info/)
 
 ## License
 
