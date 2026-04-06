@@ -5,6 +5,6 @@ pattern = "rain"
 out("matches rain? {regex.matches(\"rain\", text)}")
 match = regex.find(pattern, text)?
 out("found {match}")
-split = regex.split("\\\\s", text)
+split = regex.split("\\s", text)
 out("split length = {split}")
 out("replace all 'ain' -> 'oat': {regex.replace_all(\"ain\", text, \"oat\")?}")

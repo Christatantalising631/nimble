@@ -3,7 +3,7 @@
 Process-level helpers.
 
 ## Functions
-- `args() -> [str]`: Returns command-line arguments (excluding the executable).
+- `args() -> [str]`: Returns script arguments passed after `--` in `nimble run script.nmb -- arg1 arg2`.
 - `exit(code int)`: Exits the process with `code`.
 
 ## Example

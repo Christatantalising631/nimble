@@ -1,3 +1,9 @@
+//! Intermediate representation — Static Single Assignment (SSA) form.
+//!
+//! Used by the optimiser and JIT pipeline. The interpreter currently
+//! runs `FunctionChunk` bytecode directly; this IR is the future bridge
+//! to Cranelift code-generation.
+
 use crate::vm::Value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -10,20 +16,16 @@ pub enum Inst {
     Sub(IrVal, IrVal),
     Mul(IrVal, IrVal),
     Phi(Vec<IrVal>),
-    Guard(IrVal, IrType, u32), // value, expected_type, deopt_id
+    /// Guard: check that `value` has `expected_type`; deopt to `deopt_id` otherwise.
+    Guard(IrVal, IrType, u32),
     Return(IrVal),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum IrType {
-    Int,
-    Float,
-    Bool,
-    Ptr,
-}
+pub enum IrType { Int, Float, Bool, Ptr }
 
 pub struct BasicBlock {
-    pub insts: Vec<(IrVal, Inst)>,
+    pub insts:      Vec<(IrVal, Inst)>,
     pub terminator: Terminator,
 }
 
@@ -33,20 +35,16 @@ pub enum Terminator {
     Return(IrVal),
 }
 
+/// SSA-form program.
 pub struct SSA {
-    pub blocks: Vec<BasicBlock>,
+    pub blocks:   Vec<BasicBlock>,
     pub next_val: u32,
 }
 
 impl SSA {
-    pub fn new() -> Self {
-        Self {
-            blocks: Vec::new(),
-            next_val: 0,
-        }
-    }
+    pub fn new() -> Self { Self { blocks: Vec::new(), next_val: 0 } }
 
-    pub fn next_val(&mut self) -> IrVal {
+    pub fn fresh(&mut self) -> IrVal {
         let v = IrVal(self.next_val);
         self.next_val += 1;
         v

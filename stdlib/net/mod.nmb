@@ -1,2 +1,2 @@
-# net.nmb
-export fn http_get(url str) -> str | error = __builtin_net_http_get(url)
+export fn http_get(url):
+    return __builtin_net_http_get(url)

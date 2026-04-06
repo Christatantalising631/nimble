@@ -1,0 +1,7 @@
+load ffi
+
+fallback = ffi.default_c_path()?
+lib = ffi.open_any(["this_file_should_not_exist.any", fallback])?
+
+value = ffi.call(lib, "abs", ["i32"], "i32", [-7])?
+out("open_any abs(-7) = {value}")

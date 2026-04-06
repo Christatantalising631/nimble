@@ -1,6 +1,6 @@
 load io
 
-path = "examples/stdlib/io/sample.txt"
+path = "target/nimble_example_file_ops.txt"
 lines = ["first line", "second line", "third line"]
 out("ready to write")
 io.write_lines(path, lines)?

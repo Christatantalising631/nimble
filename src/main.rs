@@ -38,27 +38,20 @@ enum Commands {
 
 fn main() {
     install_diagnostic_hook();
-
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Run { file, args: _ }) => match fs::read_to_string(&file) {
-            Ok(source) => run_source(&source, Some(&file)),
+        Some(Commands::Run { file, args }) => match fs::read_to_string(&file) {
+            Ok(source) => run_source(&source, Some(&file), args),
             Err(err) => print_diagnostic(
                 Report::msg(format!("Failed to read {}: {}", file.display(), err)),
                 DiagnosticKind::Error,
                 Some("I/O"),
             ),
         },
-        Some(Commands::Check { file }) => {
-            check_file(&file);
-        }
-        Some(Commands::Repl) | None => {
-            repl::repl::start();
-        }
-        Some(Commands::Version) => {
-            println!("Nimble v0.1.0");
-        }
+        Some(Commands::Check { file }) => check_file(&file),
+        Some(Commands::Repl) | None => repl::repl::start(),
+        Some(Commands::Version) => println!("Nimble v0.1.0"),
     }
 }
 
@@ -67,13 +60,7 @@ fn parse_source(name: &str, source: &str) -> Result<Vec<Stmt>, ()> {
     let tokens = match lexer.tokenize() {
         Ok(t) => t,
         Err(e) => {
-            let report = report_for_span(
-                name,
-                source,
-                format!("Lexer error: {}", e.message),
-                e.span,
-                "here",
-            );
+            let report = report_for_span(name, source, format!("Lexer error: {}", e.message), e.span, "here");
             print_diagnostic(report, DiagnosticKind::Error, Some("lexical"));
             return Err(());
         }
@@ -84,13 +71,7 @@ fn parse_source(name: &str, source: &str) -> Result<Vec<Stmt>, ()> {
         Ok(stmts) => Ok(stmts),
         Err(errs) => {
             for err in errs {
-                let report = report_for_span(
-                    name,
-                    source,
-                    format!("Parser error: {}", err.message),
-                    err.span,
-                    "here",
-                );
+                let report = report_for_span(name, source, format!("Parser error: {}", err.message), err.span, "here");
                 print_diagnostic(report, DiagnosticKind::Error, Some("parser"));
             }
             Err(())
@@ -99,74 +80,45 @@ fn parse_source(name: &str, source: &str) -> Result<Vec<Stmt>, ()> {
 }
 
 fn check_file(path: &PathBuf) {
-    println!(
-        "{}",
-        format!("🔍 Checking {} ...", path.display())
-            .bright_blue()
-            .bold()
-    );
+    println!("{}", format!("🔍 Checking {} ...", path.display()).bright_blue().bold());
     let source = match fs::read_to_string(path) {
-        Ok(contents) => contents,
+        Ok(c) => c,
         Err(err) => {
-            print_diagnostic(
-                Report::msg(format!("Failed to read {}: {}", path.display(), err)),
-                DiagnosticKind::Error,
-                Some("check"),
-            );
+            print_diagnostic(Report::msg(format!("Failed to read {}: {}", path.display(), err)), DiagnosticKind::Error, Some("check"));
             return;
         }
     };
     let name = path.display().to_string();
-    let stmts = match parse_source(&name, &source) {
-        Ok(list) => list,
-        Err(_) => return,
-    };
-
-    let mut inferencer = Inferencer::new();
-    match inferencer.infer_stmts(&stmts) {
+    let stmts = match parse_source(&name, &source) { Ok(s) => s, Err(_) => return };
+    let mut inf = Inferencer::new();
+    match inf.infer_stmts(&stmts) {
         Ok(_) => println!("{}", "✅ Type check passed.".green().bold()),
-        Err(err) => print_diagnostic(
-            Report::msg(format!("Type error: {}", err)),
-            DiagnosticKind::Error,
-            Some("type inference"),
-        ),
+        Err(e) => print_diagnostic(Report::msg(format!("Type error: {}", e)), DiagnosticKind::Error, Some("type inference")),
     }
 }
 
-fn run_source(source: &str, path: Option<&PathBuf>) {
-    let name = path
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|| "<stdin>".to_string());
-    let stmts = match parse_source(&name, source) {
-        Ok(list) => list,
-        Err(_) => return,
-    };
+fn run_source(source: &str, path: Option<&PathBuf>, script_args: Vec<String>) {
+    let name = path.map(|p| p.display().to_string()).unwrap_or_else(|| "<stdin>".to_string());
+    let stmts = match parse_source(&name, source) { Ok(s) => s, Err(_) => return };
+    let mut inf = Inferencer::new();
+    if let Err(e) = inf.infer_stmts(&stmts) {
+        print_diagnostic(Report::msg(format!("Type error: {}", e)), DiagnosticKind::Error, Some("type inference"));
+        return;
+    }
 
     let mut compiler = Compiler::new("main".into());
     let chunk = compiler.compile_stmts(&stmts);
 
     let mut vm = VM::new();
-    if let Some(p) = path {
-        let dir = p
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .to_path_buf();
-        match vm.run_with_dir(Arc::clone(&chunk), dir) {
-            Ok(_) => {}
-            Err(e) => print_diagnostic(
-                Report::msg(format!("Runtime error: {}", e)),
-                DiagnosticKind::Error,
-                Some("runtime"),
-            ),
-        }
-        return;
-    }
-    match vm.run(Arc::clone(&chunk)) {
-        Ok(_) => {}
-        Err(e) => print_diagnostic(
-            Report::msg(format!("Runtime error: {}", e)),
-            DiagnosticKind::Error,
-            Some("runtime"),
-        ),
+    vm.set_script_args(script_args);
+    let result = if let Some(p) = path {
+        let dir = p.parent().unwrap_or_else(|| std::path::Path::new(".")).to_path_buf();
+        vm.run_with_dir(Arc::clone(&chunk), dir)
+    } else {
+        vm.run(Arc::clone(&chunk))
+    };
+
+    if let Err(e) = result {
+        print_diagnostic(Report::msg(format!("Runtime error: {}", e)), DiagnosticKind::Error, Some("runtime"));
     }
 }

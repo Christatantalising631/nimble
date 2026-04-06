@@ -1,2 +1,5 @@
-# path.nmb
-export fn join(parts [str]) -> str = __builtin_path_join(parts)
+export fn join(segments):
+    return __builtin_path_join(segments)
+
+export fn resolve(segments):
+    return __builtin_path_join(segments)

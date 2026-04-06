@@ -6,6 +6,8 @@ Cargo.lock
 .nimble/cache/
 *.nmb.bc
 result.txt
+examples/stdlib/io/sample_copy.txt
+examples/stdlib/io/sample_copy.bin
 
 # OS/IDE
 .DS_Store

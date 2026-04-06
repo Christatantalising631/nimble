@@ -1,0 +1,5 @@
+load ffi
+
+lib = ffi.default_c()?
+value = ffi.call(lib, "abs", ["i32"], "i32", [-42])?
+out("abs(-42) = {value}")

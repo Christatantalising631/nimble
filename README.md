@@ -1,36 +1,40 @@
-# ⚡ Nimble
+# Nimble
 
-**"Reads like Python. Runs like a VM. Feels like freedom."**
+Nimble is an indentation-sensitive scripting language implemented as a register-based bytecode VM in Rust.
+It aims for Python-like readability with a small pragmatic standard library, optional type annotations, colorful diagnostics, and fast startup.
 
-Nimble is a register‑based bytecode language focused on fast startup, small binaries, and ergonomic scripting with optional static type annotations.
+## Current Status
 
-## Key Features
+Implemented today:
 
-- **Register‑Based VM:** Efficient bytecode execution with predictable performance.
-- **Simple, Expressive Syntax:** Python‑style indentation with modern features.
-- **Optional Types:** Annotations are supported and parsed, with lightweight inference.
-- **String Interpolation:** Format values inline with `{expr}`.
-- **Modules & Stdlib:** Built‑in stdlib plus local module loading (IO, strings, regex, JSON, math, and more).
-- **Concurrency (Spawn):** Lightweight background execution.
-- **Diagnostics:** Colorful error reports with line and syntax highlighting.
-- **JIT (Experimental):** Cranelift scaffolding is present but not wired into execution yet.
+- Register-based VM execution
+- Functions, lambdas, classes/struct-like objects, named arguments
+- `if` / `elif` / `else`, `while`, `for`, ranges, `for ... step ...`
+- Strings, lists, maps, ranges, interpolation
+- Errors as values with `?` propagation
+- Local modules plus built-in stdlib modules
+- `run`, `check`, and `repl` CLI workflows
+- FFI stdlib for calling symbols from single `.dll`, `.so`, and `.dylib` files
+
+Still experimental / limited:
+
+- JIT scaffolding exists but is not wired into normal execution
+- FFI currently supports native C ABI calls with primitive scalars, pointers, and C strings
+- FFI does not yet support callbacks, variadic functions, or by-value struct marshalling
 
 ## Quick Start
 
-### Build
+Build:
 
 ```bash
 cargo build --release
 ```
 
-### Your First Program
-
-Create `main.nmb`:
+Create `hello.nmb`:
 
 ```nimble
 fn main():
-    name = in("What is your name? ")
-    out("Hello, {name}!")
+    out("Hello, Nimble!")
 
 main()
 ```
@@ -38,28 +42,126 @@ main()
 Run it:
 
 ```bash
-./target/release/nimble run main.nmb
+cargo run --release -- run hello.nmb
 ```
 
-## CLI and Workflow
+Type-check only:
 
-- `nimble run <file>` – compile, type-check, and execute a script, inheriting the current working directory for module resolution.
-- `nimble check <file>` – stops after parsing + inference, emitting the same fun, colorful diagnostics that the REPL and runtime use.
-- `nimble repl` – interactive console with the new `:globals` command (lists all registered globals) and the diagnostic hook installed for inline feedback.
+```bash
+cargo run --release -- check hello.nmb
+```
 
-Use `cargo run --release -- <command>` when you want the fastest tooling loop during development.
+Start the REPL:
 
-## Examples & Learning Path
+```bash
+cargo run --release -- repl
+```
 
-See [examples/README.md](examples/README.md) for the reorganized sample catalog (basic topics vs. stdlib-focused folders) and the exact commands used to run every snippet. The `docs/` tree references smaller, topic-based sections that align with the `basic/` exercises plus a directory per stdlib module.
+## Language Snapshot
 
-## Documentation
+```nimble
+fn fib(n int) -> int:
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
 
-- [Getting Started](docs/getting-started.md)
-- [Syntax Reference](docs/syntax.md)
-- [Standard Library](docs/stdlib/)
-- [Benchmark Infos and More...](docs/info/)
+for i in 0..10 step 2:
+    out("fib({i}) = {fib(i)}")
+```
+
+Nimble supports optional type annotations, named arguments, interpolated strings, module loading, and error propagation:
+
+```nimble
+load io
+
+fn first_line(path str) -> str | error:
+    lines = io.read_lines(path)?
+    if len(lines) == 0:
+        return error("empty file")
+    return lines[0]
+
+out(first_line("data.txt")?)
+```
+
+## Standard Library
+
+The current stdlib includes:
+
+- `io`
+- `ffi`
+- `json`
+- `list`
+- `map`
+- `math`
+- `net`
+- `os`
+- `path`
+- `process`
+- `regex`
+- `string`
+- `time`
+
+The FFI module can load a single dynamic library file directly and call exported symbols:
+
+```nimble
+load ffi
+
+lib = ffi.open("./native/mylib.dll")?
+result = ffi.call(lib, "add", ["i32", "i32"], "i32", [2, 3])?
+out(result)
+```
+
+For cross-platform loading:
+
+```nimble
+load ffi
+
+lib = ffi.open_any([
+    "./native/mylib.dll",
+    "./native/libmylib.so",
+    "./native/libmylib.dylib",
+])?
+```
+
+## Examples
+
+The repository ships runnable examples under `examples/` for both core language features and each stdlib module.
+
+- Catalog: [examples/README.md](examples/README.md)
+- Syntax reference: [docs/syntax.md](docs/syntax.md)
+- Getting started: [docs/getting-started.md](docs/getting-started.md)
+- Stdlib docs: [docs/stdlib/](docs/stdlib/)
+- Architecture notes: [docs/info/architecture.md](docs/info/architecture.md)
+- Performance notes: [docs/info/performance.md](docs/info/performance.md)
+
+Run a single example:
+
+```bash
+cargo run --release -- run examples/stdlib/json/roundtrip.nmb
+```
+
+On Windows, run the full release example sweep with:
+
+```powershell
+.\rae.ps1
+```
+
+## Verification
+
+The repo includes integration coverage for:
+
+- shipped examples
+- language features like named arguments and stepped ranges
+- stdlib behavior
+- FFI examples
+
+Typical verification commands:
+
+```bash
+cargo test
+cargo build --release
+```
 
 ## License
 
-MIT - see [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE).

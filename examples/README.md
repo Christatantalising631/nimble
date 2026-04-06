@@ -20,6 +20,10 @@ Each subdirectory highlights the idioms for a single standard library module. Ru
 - **io**
   - `file_ops.nmb` – basic file lifecycle (write/read/exist).
   - `stream_tools.nmb` – bytes/lines operations plus copy helpers.
+- **ffi**
+  - `strlen.nmb` – load a single runtime library file and call `strlen`.
+  - `abs.nmb` – call `abs` from the platform C runtime.
+  - `open_any.nmb` – try multiple `.dll` / `.so` / `.dylib` candidates until one loads.
 - **json**
   - `config.nmb` – configuration extraction and formatting.
   - `roundtrip.nmb` – parse/modify/pretty-print JSON payloads.

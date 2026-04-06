@@ -1,31 +1,42 @@
-# list.nmb
+export fn push(list, item):
+    return __builtin_list_push(list, item)
 
-export fn is_empty(lst [T]) -> bool:
-    return len(lst) == 0
+export fn pop(list):
+    return __builtin_list_pop(list)
 
-export fn contains(lst [T], item T) -> bool:
-    for x in lst:
-        if x == item:
-            return true
-    return false
+export fn first(list):
+    return __builtin_list_first(list)
 
-export fn index_of(lst [T], item T) -> int:
-    idx int = 0
-    for x in lst:
-        if x == item:
-            return idx
-        idx = idx + 1
+export fn last(list):
+    return __builtin_list_last(list)
+
+export fn insert(list, idx, val):
+    return __builtin_list_insert(list, idx, val)
+
+export fn remove(list, idx):
+    return __builtin_list_remove(list, idx)
+
+export fn slice(list, start, end):
+    return __builtin_list_slice(list, start, end)
+
+export fn is_empty(list):
+    return len(list) == 0
+
+export fn index_of(list, value):
+    i = 0
+    for item in list:
+        if item == value:
+            return i
+        i += 1
     return -1
 
-export fn push(lst [T], item T) -> null:
-    __builtin_list_push(lst, item)
-    return null
+export fn sort(list):
+    __builtin_list_sort_inplace(list)?
+    return list
 
-export fn pop(lst [T]) -> T | error = __builtin_list_pop(lst)
-export fn first(lst [T]) -> T | error = __builtin_list_first(lst)
-export fn last(lst [T]) -> T | error = __builtin_list_last(lst)
-export fn insert(lst [T], idx int, item T) -> null = __builtin_list_insert(lst, idx, item)
-export fn remove(lst [T], idx int) -> T | error = __builtin_list_remove(lst, idx)
-export fn slice(lst [T], start int, end int) -> [T] = __builtin_list_slice(lst, start, end)
-export fn reverse(lst [T]) -> [T] = __builtin_list_reverse(lst)
-export fn sort(lst [T]) -> [T] | error = __builtin_list_sort(lst)
+export fn reverse(list):
+    __builtin_list_reverse_inplace(list)?
+    return list
+
+export fn contains(list, val):
+    return __builtin_list_contains(list, val)

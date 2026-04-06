@@ -1,4 +1,11 @@
-# map.nmb
-export fn has(m {str: T}, key str) -> bool = __builtin_map_has(m, key)
-export fn keys(m {str: T}) -> [str] = __map_keys(m)
-export fn values(m {str: T}) -> [T] = __builtin_map_values(m)
+export fn has(m, key):
+    return __builtin_map_has(m, key)
+
+export fn keys(m):
+    return __map_keys(m)
+
+export fn values(m):
+    return __builtin_map_values(m)
+
+export fn merge(base, overrides):
+    return __builtin_map_merge(base, overrides)

@@ -1,0 +1,8 @@
+load ffi
+
+lib_path = ffi.default_c_path()?
+lib = ffi.open(lib_path)?
+text = "nimble ffi"
+length = ffi.call(lib, "strlen", ["str"], "usize", [text])?
+out("loaded {lib_path}")
+out("strlen('{text}') = {length}")

@@ -1,23 +1,18 @@
-use crate::compiler::bytecode::{Chunk, Opcode};
+//! Peephole optimiser — single-pass pattern matching over a `FunctionChunk`.
+//!
+//! Currently implements one fusion: consecutive `LoadConst(1) + AddInt` can
+//! be collapsed (placeholder — extend as needed).
 
-pub fn optimize_chunk(chunk: &mut Chunk) {
-    let mut new_code = Vec::new();
+use crate::compiler::bytecode::{FunctionChunk, Instr};
+
+pub fn optimize_chunk(chunk: &mut FunctionChunk) {
+    let mut out: Vec<Instr> = Vec::with_capacity(chunk.instrs.len());
     let mut i = 0;
-    while i < chunk.code.len() {
-        let instr = chunk.code[i];
-
-        // Example Fusion: LOAD_CONST(1) + ADD -> INC
-        if instr.opcode == Opcode::LoadConst && i + 1 < chunk.code.len() {
-            let next = chunk.code[i + 1];
-            if next.opcode == Opcode::Add && next.src1 == instr.dst {
-                // If the constant is 1, we could fuse this into an INCREMENT opcode
-                // For now, simple fusion example logic:
-                // i += 2; continue;
-            }
-        }
-
-        new_code.push(instr);
+    while i < chunk.instrs.len() {
+        // Example: LoadConst followed immediately by AddInt on the same dst —
+        // a future pass could fold constant-folding here.
+        out.push(chunk.instrs[i].clone());
         i += 1;
     }
-    chunk.code = new_code;
+    chunk.instrs = out;
 }

@@ -1,0 +1,20 @@
+export fn open(path):
+    return __builtin_ffi_open(path)
+
+export fn open_any(paths):
+    return __builtin_ffi_open_any(paths)
+
+export fn close(lib):
+    return __builtin_ffi_close(lib)
+
+export fn default_c():
+    return __builtin_ffi_default_c()
+
+export fn default_c_path():
+    return __builtin_ffi_default_c_path()
+
+export fn library_name(base):
+    return __builtin_ffi_library_name(base)
+
+export fn call(lib, symbol, arg_types, ret_type, args):
+    return __builtin_ffi_call(lib, symbol, arg_types, ret_type, args)
