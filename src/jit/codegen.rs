@@ -20,7 +20,8 @@ impl<'a> CodeGenerator<'a> {
 
     pub fn translate(&mut self, chunk: &FunctionChunk) {
         let entry_block = self.builder.create_block();
-        self.builder.append_block_params_for_function_params(entry_block);
+        self.builder
+            .append_block_params_for_function_params(entry_block);
         self.builder.switch_to_block(entry_block);
         self.builder.seal_block(entry_block);
 
@@ -35,20 +36,20 @@ impl<'a> CodeGenerator<'a> {
         for instr in &chunk.instrs {
             match instr {
                 Instr::AddInt { dst, a, b } => {
-                    let va  = self.builder.use_var(regs[a.0 as usize]);
-                    let vb  = self.builder.use_var(regs[b.0 as usize]);
+                    let va = self.builder.use_var(regs[a.0 as usize]);
+                    let vb = self.builder.use_var(regs[b.0 as usize]);
                     let res = self.builder.ins().iadd(va, vb);
                     self.builder.def_var(regs[dst.0 as usize], res);
                 }
                 Instr::SubInt { dst, a, b } => {
-                    let va  = self.builder.use_var(regs[a.0 as usize]);
-                    let vb  = self.builder.use_var(regs[b.0 as usize]);
+                    let va = self.builder.use_var(regs[a.0 as usize]);
+                    let vb = self.builder.use_var(regs[b.0 as usize]);
                     let res = self.builder.ins().isub(va, vb);
                     self.builder.def_var(regs[dst.0 as usize], res);
                 }
                 Instr::MulInt { dst, a, b } => {
-                    let va  = self.builder.use_var(regs[a.0 as usize]);
-                    let vb  = self.builder.use_var(regs[b.0 as usize]);
+                    let va = self.builder.use_var(regs[a.0 as usize]);
+                    let vb = self.builder.use_var(regs[b.0 as usize]);
                     let res = self.builder.ins().imul(va, vb);
                     self.builder.def_var(regs[dst.0 as usize], res);
                 }

@@ -1,27 +1,30 @@
 use crate::compiler::Compiler;
-use crate::error::report_for_span;
+use crate::error::{emit_report, NimbleError, NimbleResult, SourceFile};
 use crate::lexer::Lexer;
-use crate::parser::Parser;
+use crate::parser::{ast::Stmt, Parser};
+use crate::types::infer::Inferencer;
 use crate::vm::Value;
 use crate::vm::VM;
 use colored::Colorize;
-use miette::Report;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 use std::sync::Arc;
 
-pub fn start() {
-    let mut rl = DefaultEditor::new().unwrap();
+pub fn start() -> NimbleResult<()> {
+    let mut rl = DefaultEditor::new()
+        .map_err(|error| miette::Report::msg(format!("failed to start the REPL: {error}")))?;
     let mut vm = VM::new();
+
     println!("Nimble v0.1.0");
     println!("Type :help for commands");
 
     loop {
-        let readline = rl.readline(">>> ");
-        match readline {
+        match rl.readline(">>> ") {
             Ok(line) => {
                 let trimmed = line.trim();
-                if trimmed.is_empty() { continue; }
+                if trimmed.is_empty() {
+                    continue;
+                }
                 let _ = rl.add_history_entry(line.as_str());
 
                 if trimmed.starts_with(":globals") {
@@ -30,56 +33,81 @@ pub fn start() {
                 }
                 if trimmed.starts_with(':') {
                     match trimmed {
-                        ":help"     => println!("Commands: :quit, :q, :clear, :globals"),
-                        ":quit"|":q"=> break,
-                        ":clear"    => { let _ = rl.clear_history(); }
-                        _           => println!("Unknown command: {}", trimmed),
+                        ":help" => println!("Commands: :quit, :q, :clear, :globals"),
+                        ":quit" | ":q" => break,
+                        ":clear" => {
+                            let _ = rl.clear_history();
+                        }
+                        _ => println!("Unknown command: {}", trimmed),
                     }
                     continue;
                 }
-                let _ = execute_line(&line, &mut vm);
+
+                if let Err(report) = execute_line(&line, &mut vm) {
+                    emit_report(&report);
+                }
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
-            Err(err) => { eprintln!("REPL Error: {:?}", err); break; }
+            Err(error) => {
+                return Err(miette::Report::msg(format!("REPL input failed: {error}")));
+            }
         }
     }
+
+    Ok(())
 }
 
-fn execute_line(line: &str, vm: &mut VM) -> Result<(), ()> {
-    let source = format!("{}\n", line);
-    let mut lexer = Lexer::new(&source);
-    let tokens = match lexer.tokenize() {
-        Ok(t) => t,
-        Err(e) => {
-            let report = report_for_span("<repl>", &source, format!("Lexer error: {}", e.message), e.span, "here");
-            eprintln!("{report}");
-            return Err(());
-        }
-    };
+fn parse_source(source_file: &SourceFile) -> NimbleResult<Vec<Stmt>> {
+    let mut lexer = Lexer::new(source_file.source());
+    let tokens = lexer
+        .tokenize()
+        .map_err(|error| miette::Report::new(NimbleError::from_lex(source_file, error)))?;
 
     let mut parser = Parser::new(tokens);
-    let stmts = match parser.parse() {
-        Ok(s) => s,
-        Err(errs) => {
-            for err in errs {
-                let report = report_for_span("<repl>", &source, format!("Parser error: {}", err.message), err.span, "here");
-                eprintln!("{report}");
-            }
-            return Err(());
+    parser.parse().map_err(|errors| {
+        let mut diagnostics = errors
+            .into_iter()
+            .map(|error| NimbleError::from_parse(source_file, error))
+            .collect::<Vec<_>>();
+
+        if diagnostics.len() == 1 {
+            miette::Report::new(diagnostics.remove(0))
+        } else {
+            miette::Report::new(NimbleError::multiple(
+                source_file,
+                "failed to parse REPL input",
+                diagnostics,
+            ))
         }
-    };
+    })
+}
+
+fn type_check(source_file: &SourceFile, stmts: &[Stmt]) -> NimbleResult<()> {
+    let mut inferencer = Inferencer::new();
+    inferencer
+        .infer_stmts(stmts)
+        .map_err(|error| miette::Report::new(NimbleError::from_semantic(source_file, error)))
+}
+
+fn execute_line(line: &str, vm: &mut VM) -> NimbleResult<()> {
+    let source_file = SourceFile::new("<repl>", format!("{line}\n"));
+    let stmts = parse_source(&source_file)?;
+    type_check(&source_file, &stmts)?;
 
     let mut compiler = Compiler::new("repl".into());
     let chunk = compiler.compile_stmts(&stmts);
 
     match vm.run(Arc::clone(&chunk)) {
         Ok(Value::Null) => {}
-        Ok(val) => println!("{}", val.stringify().cyan()),
-        Err(e) => {
-            let report = Report::msg(format!("Runtime error: {}", e));
-            eprintln!("{:?}", report);
+        Ok(value) => println!("{}", value.stringify().cyan()),
+        Err(message) => {
+            return Err(miette::Report::new(NimbleError::runtime(
+                &source_file,
+                message,
+            )))
         }
     }
+
     Ok(())
 }
 

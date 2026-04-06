@@ -1,7 +1,20 @@
+use crate::lexer::Span;
 use crate::types::Type;
 
 #[derive(Debug, Clone)]
-pub enum Expr {
+pub struct Expr {
+    pub kind: ExprKind,
+    pub span: Span,
+}
+
+impl Expr {
+    pub fn new(kind: ExprKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprKind {
     Int(i64),
     Float(f64),
     Str(String),
@@ -28,12 +41,14 @@ pub enum Expr {
     Field {
         obj: Box<Expr>,
         field: String,
+        field_span: Span,
     },
     List(Vec<Expr>),
     Map(Vec<(Expr, Expr)>),
     Lambda {
         params: Vec<Param>,
         ret_ty: Option<Type>,
+        ret_ty_span: Option<Span>,
         body: Vec<Stmt>,
     },
     Interp(Vec<InterpPart>),
@@ -56,6 +71,8 @@ pub enum InterpPart {
 pub struct Param {
     pub name: String,
     pub ty: Option<Type>,
+    pub span: Span,
+    pub ty_span: Option<Span>,
 }
 
 #[derive(Debug, Clone)]
@@ -89,15 +106,30 @@ pub enum UnaryOp {
 }
 
 #[derive(Debug, Clone)]
-pub enum Stmt {
+pub struct Stmt {
+    pub kind: StmtKind,
+    pub span: Span,
+}
+
+impl Stmt {
+    pub fn new(kind: StmtKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum StmtKind {
     Assign {
         target: String,
+        target_span: Span,
         ty: Option<Type>,
+        ty_span: Option<Span>,
         value: Expr,
     },
     FieldAssign {
         obj: Expr,
         field: String,
+        field_span: Span,
         value: Expr,
     },
     IndexAssign {
@@ -114,13 +146,16 @@ pub enum Stmt {
     },
     For {
         var: String,
+        var_span: Span,
         iter: Expr,
         step: Option<Expr>,
         body: Vec<Stmt>,
     },
     ForKV {
         key: String,
+        key_span: Span,
         val: String,
+        val_span: Span,
         iter: Expr,
         body: Vec<Stmt>,
     },
@@ -133,7 +168,9 @@ pub enum Stmt {
     Expr(Expr),
     Load {
         alias: String,
+        alias_span: Span,
         source: String,
+        source_span: Option<Span>,
     },
     FnDef(FnDef),
     ClsDef(ClsDef),
@@ -143,13 +180,16 @@ pub enum Stmt {
 #[derive(Debug, Clone)]
 pub struct FnDef {
     pub name: String,
+    pub name_span: Span,
     pub params: Vec<Param>,
     pub ret_ty: Option<Type>,
+    pub ret_ty_span: Option<Span>,
     pub body: Vec<Stmt>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ClsDef {
     pub name: String,
+    pub name_span: Span,
     pub fields: Vec<Param>,
 }

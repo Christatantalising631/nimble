@@ -11,21 +11,21 @@ use std::thread;
 type RuntimeCallArg = (Option<String>, Value);
 
 pub struct VM {
-    frames:       Vec<CallFrame>,
-    pub globals:  HashMap<String, Value>,
+    frames: Vec<CallFrame>,
+    pub globals: HashMap<String, Value>,
     module_cache: Arc<Mutex<HashMap<String, Value>>>,
-    resolver:     ModuleResolver,
-    script_args:  Vec<String>,
+    resolver: ModuleResolver,
+    script_args: Vec<String>,
 }
 
 impl VM {
     pub fn new() -> Self {
         let mut vm = Self {
-            frames:       Vec::new(),
-            globals:      HashMap::new(),
+            frames: Vec::new(),
+            globals: HashMap::new(),
             module_cache: Arc::new(Mutex::new(HashMap::new())),
-            resolver:     ModuleResolver::new(),
-            script_args:  Vec::new(),
+            resolver: ModuleResolver::new(),
+            script_args: Vec::new(),
         };
         vm.install_builtins();
         vm
@@ -33,11 +33,11 @@ impl VM {
 
     fn with_shared_cache(cache: Arc<Mutex<HashMap<String, Value>>>) -> Self {
         let mut vm = Self {
-            frames:       Vec::new(),
-            globals:      HashMap::new(),
+            frames: Vec::new(),
+            globals: HashMap::new(),
             module_cache: cache,
-            resolver:     ModuleResolver::new(),
-            script_args:  Vec::new(),
+            resolver: ModuleResolver::new(),
+            script_args: Vec::new(),
         };
         vm.install_builtins();
         vm
@@ -45,111 +45,135 @@ impl VM {
 
     fn install_builtins(&mut self) {
         macro_rules! reg {
-            ($name:expr, $fn:expr) => { self.globals.insert($name.into(), Value::NativeFunction($fn)); }
+            ($name:expr, $fn:expr) => {
+                self.globals
+                    .insert($name.into(), Value::NativeFunction($fn));
+            };
         }
-        reg!("out",   builtins::out);
-        reg!("in",    builtins::input);
+        reg!("out", builtins::out);
+        reg!("in", builtins::input);
         reg!("input", builtins::input);
-        reg!("len",   builtins::len);
-        reg!("to_int",builtins::to_int);
+        reg!("len", builtins::len);
+        reg!("to_int", builtins::to_int);
         reg!("index_of", builtins::index_of);
         reg!("error", builtins::error);
         reg!("__load_module", builtins::load_module);
-        reg!("__map_keys",    builtins::map_keys);
-        reg!("__builtin_file_exists",      builtins::builtin_file_exists);
-        reg!("__builtin_io_read_file",     builtins::builtin_io_read_file);
-        reg!("__builtin_io_write_file",    builtins::builtin_io_write_file);
-        reg!("__builtin_io_append_file",   builtins::builtin_io_append_file);
-        reg!("__builtin_io_delete_file",   builtins::builtin_io_delete_file);
-        reg!("__builtin_io_read_lines",    builtins::builtin_io_read_lines);
-        reg!("__builtin_io_write_lines",   builtins::builtin_io_write_lines);
-        reg!("__builtin_io_read_bytes",    builtins::builtin_io_read_bytes);
-        reg!("__builtin_io_write_bytes",   builtins::builtin_io_write_bytes);
-        reg!("__builtin_io_copy_file",     builtins::builtin_io_copy_file);
-        reg!("__builtin_io_stderr",        builtins::builtin_io_stderr);
-        reg!("__builtin_time_now",         builtins::builtin_time_now);
-        reg!("__builtin_time_sleep",       builtins::builtin_time_sleep);
-        reg!("__builtin_os_args",          builtins::builtin_os_args);
-        reg!("__builtin_os_exit",          builtins::builtin_os_exit);
-        reg!("__builtin_os_env",           builtins::builtin_os_env);
-        reg!("__builtin_ffi_open",         builtins::builtin_ffi_open);
-        reg!("__builtin_ffi_open_any",     builtins::builtin_ffi_open_any);
-        reg!("__builtin_ffi_close",        builtins::builtin_ffi_close);
-        reg!("__builtin_ffi_call",         builtins::builtin_ffi_call);
-        reg!("__builtin_ffi_default_c",    builtins::builtin_ffi_default_c);
-        reg!("__builtin_ffi_default_c_path", builtins::builtin_ffi_default_c_path);
-        reg!("__builtin_ffi_library_name", builtins::builtin_ffi_library_name);
-        reg!("__builtin_path_join",        builtins::builtin_path_join);
-        reg!("__builtin_process_run",      builtins::builtin_process_run);
-        reg!("__builtin_regex_matches",    builtins::builtin_regex_matches);
-        reg!("__builtin_regex_find",       builtins::builtin_regex_find);
-        reg!("__builtin_regex_find_all",   builtins::builtin_regex_find_all);
-        reg!("__builtin_regex_replace",    builtins::builtin_regex_replace);
-        reg!("__builtin_regex_replace_all",builtins::builtin_regex_replace_all);
-        reg!("__builtin_regex_split",      builtins::builtin_regex_split);
-        reg!("__builtin_json_parse",       builtins::builtin_json_parse);
-        reg!("__builtin_json_stringify",   builtins::builtin_json_stringify);
-        reg!("__builtin_json_pretty",      builtins::builtin_json_pretty);
-        reg!("__builtin_net_http_get",     builtins::builtin_net_http_get);
-        reg!("__builtin_map_has",          builtins::builtin_map_has);
-        reg!("__builtin_map_values",       builtins::builtin_map_values);
-        reg!("__builtin_map_merge",        builtins::builtin_map_merge);
-        reg!("__builtin_list_push",        builtins::builtin_list_push);
-        reg!("__builtin_list_pop",         builtins::builtin_list_pop);
-        reg!("__builtin_list_first",       builtins::builtin_list_first);
-        reg!("__builtin_list_last",        builtins::builtin_list_last);
-        reg!("__builtin_list_insert",      builtins::builtin_list_insert);
-        reg!("__builtin_list_remove",      builtins::builtin_list_remove);
-        reg!("__builtin_list_slice",       builtins::builtin_list_slice);
-        reg!("__builtin_list_sort",        builtins::builtin_list_sort);
-        reg!("__builtin_list_sort_inplace",builtins::builtin_list_sort_inplace);
-        reg!("__builtin_list_reverse",     builtins::builtin_list_reverse);
-        reg!("__builtin_list_reverse_inplace", builtins::builtin_list_reverse_inplace);
-        reg!("__builtin_list_contains",    builtins::builtin_list_contains);
-        reg!("__builtin_str_split",        builtins::builtin_str_split);
-        reg!("__builtin_str_join",         builtins::builtin_str_join);
-        reg!("__builtin_str_trim",         builtins::builtin_str_trim);
-        reg!("__builtin_str_trim_start",   builtins::builtin_str_trim_start);
-        reg!("__builtin_str_trim_end",     builtins::builtin_str_trim_end);
-        reg!("__builtin_str_upper",        builtins::builtin_str_upper);
-        reg!("__builtin_str_lower",        builtins::builtin_str_lower);
-        reg!("__builtin_str_starts_with",  builtins::builtin_str_starts_with);
-        reg!("__builtin_str_ends_with",    builtins::builtin_str_ends_with);
-        reg!("__builtin_str_replace",      builtins::builtin_str_replace);
-        reg!("__builtin_str_replace_all",  builtins::builtin_str_replace_all);
-        reg!("__builtin_str_count",        builtins::builtin_str_count);
-        reg!("__builtin_str_index_of",     builtins::builtin_str_index_of);
-        reg!("__builtin_str_slice",        builtins::builtin_str_slice);
-        reg!("__builtin_str_repeat",       builtins::builtin_str_repeat);
-        reg!("__builtin_str_pad_left",     builtins::builtin_str_pad_left);
-        reg!("__builtin_str_pad_right",    builtins::builtin_str_pad_right);
-        reg!("__builtin_str_to_int",       builtins::builtin_str_to_int);
-        reg!("__builtin_str_to_float",     builtins::builtin_str_to_float);
-        reg!("__builtin_str_from_int",     builtins::builtin_str_from_int);
-        reg!("__builtin_str_from_float",   builtins::builtin_str_from_float);
-        reg!("__builtin_str_chars",        builtins::builtin_str_chars);
-        reg!("__builtin_str_len",          builtins::builtin_str_len);
-        reg!("__builtin_str_is_numeric",   builtins::builtin_str_is_numeric);
-        reg!("__builtin_str_is_alpha",     builtins::builtin_str_is_alpha);
-        reg!("__builtin_str_format",       builtins::builtin_str_format);
-        reg!("__builtin_str_contains",     builtins::builtin_str_contains);
-        reg!("__builtin_math_pow",         builtins::builtin_math_pow);
-        reg!("__builtin_math_sqrt",        builtins::builtin_math_sqrt);
-        reg!("__builtin_math_abs",         builtins::builtin_math_abs);
-        reg!("__builtin_math_floor",       builtins::builtin_math_floor);
-        reg!("__builtin_math_ceil",        builtins::builtin_math_ceil);
-        reg!("__builtin_math_round",       builtins::builtin_math_round);
-        reg!("__builtin_math_min",         builtins::builtin_math_min);
-        reg!("__builtin_math_max",         builtins::builtin_math_max);
-        reg!("__builtin_math_clamp",       builtins::builtin_math_clamp);
-        reg!("__builtin_math_log",         builtins::builtin_math_log);
-        reg!("__builtin_math_log2",        builtins::builtin_math_log2);
-        reg!("__builtin_math_sin",         builtins::builtin_math_sin);
-        reg!("__builtin_math_cos",         builtins::builtin_math_cos);
-        reg!("__builtin_math_tan",         builtins::builtin_math_tan);
-        reg!("__builtin_math_random",      builtins::builtin_math_random);
-        reg!("__builtin_math_rand_int",    builtins::builtin_math_rand_int);
-        reg!("__builtin_math_div",         builtins::builtin_math_div);
+        reg!("__map_keys", builtins::map_keys);
+        reg!("__builtin_file_exists", builtins::builtin_file_exists);
+        reg!("__builtin_io_read_file", builtins::builtin_io_read_file);
+        reg!("__builtin_io_write_file", builtins::builtin_io_write_file);
+        reg!("__builtin_io_append_file", builtins::builtin_io_append_file);
+        reg!("__builtin_io_delete_file", builtins::builtin_io_delete_file);
+        reg!("__builtin_io_read_lines", builtins::builtin_io_read_lines);
+        reg!("__builtin_io_write_lines", builtins::builtin_io_write_lines);
+        reg!("__builtin_io_read_bytes", builtins::builtin_io_read_bytes);
+        reg!("__builtin_io_write_bytes", builtins::builtin_io_write_bytes);
+        reg!("__builtin_io_copy_file", builtins::builtin_io_copy_file);
+        reg!("__builtin_io_stderr", builtins::builtin_io_stderr);
+        reg!("__builtin_time_now", builtins::builtin_time_now);
+        reg!("__builtin_time_sleep", builtins::builtin_time_sleep);
+        reg!("__builtin_os_args", builtins::builtin_os_args);
+        reg!("__builtin_os_exit", builtins::builtin_os_exit);
+        reg!("__builtin_os_env", builtins::builtin_os_env);
+        reg!("__builtin_ffi_open", builtins::builtin_ffi_open);
+        reg!("__builtin_ffi_open_any", builtins::builtin_ffi_open_any);
+        reg!("__builtin_ffi_close", builtins::builtin_ffi_close);
+        reg!("__builtin_ffi_call", builtins::builtin_ffi_call);
+        reg!("__builtin_ffi_default_c", builtins::builtin_ffi_default_c);
+        reg!(
+            "__builtin_ffi_default_c_path",
+            builtins::builtin_ffi_default_c_path
+        );
+        reg!(
+            "__builtin_ffi_library_name",
+            builtins::builtin_ffi_library_name
+        );
+        reg!("__builtin_path_join", builtins::builtin_path_join);
+        reg!("__builtin_process_run", builtins::builtin_process_run);
+        reg!("__builtin_regex_matches", builtins::builtin_regex_matches);
+        reg!("__builtin_regex_find", builtins::builtin_regex_find);
+        reg!("__builtin_regex_find_all", builtins::builtin_regex_find_all);
+        reg!("__builtin_regex_replace", builtins::builtin_regex_replace);
+        reg!(
+            "__builtin_regex_replace_all",
+            builtins::builtin_regex_replace_all
+        );
+        reg!("__builtin_regex_split", builtins::builtin_regex_split);
+        reg!("__builtin_json_parse", builtins::builtin_json_parse);
+        reg!("__builtin_json_stringify", builtins::builtin_json_stringify);
+        reg!("__builtin_json_pretty", builtins::builtin_json_pretty);
+        reg!("__builtin_net_http_get", builtins::builtin_net_http_get);
+        reg!("__builtin_map_has", builtins::builtin_map_has);
+        reg!("__builtin_map_values", builtins::builtin_map_values);
+        reg!("__builtin_map_merge", builtins::builtin_map_merge);
+        reg!("__builtin_list_push", builtins::builtin_list_push);
+        reg!("__builtin_list_pop", builtins::builtin_list_pop);
+        reg!("__builtin_list_first", builtins::builtin_list_first);
+        reg!("__builtin_list_last", builtins::builtin_list_last);
+        reg!("__builtin_list_insert", builtins::builtin_list_insert);
+        reg!("__builtin_list_remove", builtins::builtin_list_remove);
+        reg!("__builtin_list_slice", builtins::builtin_list_slice);
+        reg!("__builtin_list_sort", builtins::builtin_list_sort);
+        reg!(
+            "__builtin_list_sort_inplace",
+            builtins::builtin_list_sort_inplace
+        );
+        reg!("__builtin_list_reverse", builtins::builtin_list_reverse);
+        reg!(
+            "__builtin_list_reverse_inplace",
+            builtins::builtin_list_reverse_inplace
+        );
+        reg!("__builtin_list_contains", builtins::builtin_list_contains);
+        reg!("__builtin_str_split", builtins::builtin_str_split);
+        reg!("__builtin_str_join", builtins::builtin_str_join);
+        reg!("__builtin_str_trim", builtins::builtin_str_trim);
+        reg!("__builtin_str_trim_start", builtins::builtin_str_trim_start);
+        reg!("__builtin_str_trim_end", builtins::builtin_str_trim_end);
+        reg!("__builtin_str_upper", builtins::builtin_str_upper);
+        reg!("__builtin_str_lower", builtins::builtin_str_lower);
+        reg!(
+            "__builtin_str_starts_with",
+            builtins::builtin_str_starts_with
+        );
+        reg!("__builtin_str_ends_with", builtins::builtin_str_ends_with);
+        reg!("__builtin_str_replace", builtins::builtin_str_replace);
+        reg!(
+            "__builtin_str_replace_all",
+            builtins::builtin_str_replace_all
+        );
+        reg!("__builtin_str_count", builtins::builtin_str_count);
+        reg!("__builtin_str_index_of", builtins::builtin_str_index_of);
+        reg!("__builtin_str_slice", builtins::builtin_str_slice);
+        reg!("__builtin_str_repeat", builtins::builtin_str_repeat);
+        reg!("__builtin_str_pad_left", builtins::builtin_str_pad_left);
+        reg!("__builtin_str_pad_right", builtins::builtin_str_pad_right);
+        reg!("__builtin_str_to_int", builtins::builtin_str_to_int);
+        reg!("__builtin_str_to_float", builtins::builtin_str_to_float);
+        reg!("__builtin_str_from_int", builtins::builtin_str_from_int);
+        reg!("__builtin_str_from_float", builtins::builtin_str_from_float);
+        reg!("__builtin_str_chars", builtins::builtin_str_chars);
+        reg!("__builtin_str_len", builtins::builtin_str_len);
+        reg!("__builtin_str_is_numeric", builtins::builtin_str_is_numeric);
+        reg!("__builtin_str_is_alpha", builtins::builtin_str_is_alpha);
+        reg!("__builtin_str_format", builtins::builtin_str_format);
+        reg!("__builtin_str_contains", builtins::builtin_str_contains);
+        reg!("__builtin_math_pow", builtins::builtin_math_pow);
+        reg!("__builtin_math_sqrt", builtins::builtin_math_sqrt);
+        reg!("__builtin_math_abs", builtins::builtin_math_abs);
+        reg!("__builtin_math_floor", builtins::builtin_math_floor);
+        reg!("__builtin_math_ceil", builtins::builtin_math_ceil);
+        reg!("__builtin_math_round", builtins::builtin_math_round);
+        reg!("__builtin_math_min", builtins::builtin_math_min);
+        reg!("__builtin_math_max", builtins::builtin_math_max);
+        reg!("__builtin_math_clamp", builtins::builtin_math_clamp);
+        reg!("__builtin_math_log", builtins::builtin_math_log);
+        reg!("__builtin_math_log2", builtins::builtin_math_log2);
+        reg!("__builtin_math_sin", builtins::builtin_math_sin);
+        reg!("__builtin_math_cos", builtins::builtin_math_cos);
+        reg!("__builtin_math_tan", builtins::builtin_math_tan);
+        reg!("__builtin_math_random", builtins::builtin_math_random);
+        reg!("__builtin_math_rand_int", builtins::builtin_math_rand_int);
+        reg!("__builtin_math_div", builtins::builtin_math_div);
     }
 
     // ── Public run API ────────────────────────────────────────────────────────
@@ -159,7 +183,11 @@ impl VM {
         self.run_with_dir(chunk, dir)
     }
 
-    pub fn run_with_dir(&mut self, chunk: Arc<FunctionChunk>, module_dir: PathBuf) -> Result<Value, String> {
+    pub fn run_with_dir(
+        &mut self,
+        chunk: Arc<FunctionChunk>,
+        module_dir: PathBuf,
+    ) -> Result<Value, String> {
         self.frames.push(CallFrame::new(chunk, module_dir, None));
         self.execute()
     }
@@ -196,25 +224,36 @@ impl VM {
             }
         }
         let module_val = Value::Module(Arc::new(out));
-        self.module_cache.lock().unwrap().insert(source.to_string(), module_val.clone());
+        self.module_cache
+            .lock()
+            .unwrap()
+            .insert(source.to_string(), module_val.clone());
         Ok(module_val)
     }
 
     pub fn global_entries(&self) -> Vec<(String, Value)> {
-        let mut entries: Vec<(String, Value)> = self.globals.iter()
-            .map(|(k,v)| (k.clone(), v.clone())).collect();
-        entries.sort_by(|a,b| a.0.cmp(&b.0));
+        let mut entries: Vec<(String, Value)> = self
+            .globals
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
         entries
     }
 
     fn current_module_dir(&self) -> PathBuf {
-        self.frames.last().map(|f| f.module_dir.clone()).unwrap_or_else(|| PathBuf::from("."))
+        self.frames
+            .last()
+            .map(|f| f.module_dir.clone())
+            .unwrap_or_else(|| PathBuf::from("."))
     }
 
     fn collect_call_args(frame: &CallFrame, args: &[CallArgDesc]) -> Vec<RuntimeCallArg> {
         args.iter()
             .map(|arg| {
-                let name = arg.name.map(|idx| frame.chunk.names[idx.0 as usize].clone());
+                let name = arg
+                    .name
+                    .map(|idx| frame.chunk.names[idx.0 as usize].clone());
                 let value = frame.get_reg(arg.reg);
                 (name, value)
             })
@@ -314,7 +353,7 @@ impl VM {
         loop {
             let mut frame = match self.frames.pop() {
                 Some(f) => f,
-                None    => return Ok(Value::Null),
+                None => return Ok(Value::Null),
             };
 
             if frame.ip >= frame.chunk.instrs.len() {
@@ -342,13 +381,22 @@ impl VM {
                 Instr::AddInt { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => Value::Int(x + y),
+                        (Value::Int(x), Value::Int(y)) => Value::Int(x + y),
                         (Value::Float(x), Value::Float(y)) => Value::Float(x + y),
-                        (Value::Int(x),   Value::Float(y)) => Value::Float(x as f64 + y),
-                        (Value::Float(x), Value::Int(y))   => Value::Float(x + y as f64),
-                        (Value::Str(sa),  Value::Str(sb))  => { let s = sa.to_string() + &sb; Value::Str(Arc::new(s)) }
-                        (Value::Str(sa),  other)           => { let s = sa.to_string() + &other.stringify(); Value::Str(Arc::new(s)) }
-                        (other,           Value::Str(sb))  => { let s = other.stringify() + &sb; Value::Str(Arc::new(s)) }
+                        (Value::Int(x), Value::Float(y)) => Value::Float(x as f64 + y),
+                        (Value::Float(x), Value::Int(y)) => Value::Float(x + y as f64),
+                        (Value::Str(sa), Value::Str(sb)) => {
+                            let s = sa.to_string() + &sb;
+                            Value::Str(Arc::new(s))
+                        }
+                        (Value::Str(sa), other) => {
+                            let s = sa.to_string() + &other.stringify();
+                            Value::Str(Arc::new(s))
+                        }
+                        (other, Value::Str(sb)) => {
+                            let s = other.stringify() + &sb;
+                            Value::Str(Arc::new(s))
+                        }
                         _ => return Err("Invalid operands for +".into()),
                     };
                     frame.set_reg(dst, res);
@@ -356,10 +404,10 @@ impl VM {
                 Instr::SubInt { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => Value::Int(x - y),
+                        (Value::Int(x), Value::Int(y)) => Value::Int(x - y),
                         (Value::Float(x), Value::Float(y)) => Value::Float(x - y),
-                        (Value::Int(x),   Value::Float(y)) => Value::Float(x as f64 - y),
-                        (Value::Float(x), Value::Int(y))   => Value::Float(x - y as f64),
+                        (Value::Int(x), Value::Float(y)) => Value::Float(x as f64 - y),
+                        (Value::Float(x), Value::Int(y)) => Value::Float(x - y as f64),
                         _ => return Err("Invalid operands for -".into()),
                     };
                     frame.set_reg(dst, res);
@@ -367,10 +415,10 @@ impl VM {
                 Instr::MulInt { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => Value::Int(x * y),
+                        (Value::Int(x), Value::Int(y)) => Value::Int(x * y),
                         (Value::Float(x), Value::Float(y)) => Value::Float(x * y),
-                        (Value::Int(x),   Value::Float(y)) => Value::Float(x as f64 * y),
-                        (Value::Float(x), Value::Int(y))   => Value::Float(x * y as f64),
+                        (Value::Int(x), Value::Float(y)) => Value::Float(x as f64 * y),
+                        (Value::Float(x), Value::Int(y)) => Value::Float(x * y as f64),
                         _ => return Err("Invalid operands for *".into()),
                     };
                     frame.set_reg(dst, res);
@@ -378,10 +426,30 @@ impl VM {
                 Instr::DivInt { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => { if y==0 { return Err("Division by zero".into()); } Value::Int(x/y) }
-                        (Value::Float(x), Value::Float(y)) => { if y==0.0 { return Err("Division by zero".into()); } Value::Float(x/y) }
-                        (Value::Int(x),   Value::Float(y)) => { if y==0.0 { return Err("Division by zero".into()); } Value::Float(x as f64/y) }
-                        (Value::Float(x), Value::Int(y))   => { if y==0 { return Err("Division by zero".into()); } Value::Float(x/y as f64) }
+                        (Value::Int(x), Value::Int(y)) => {
+                            if y == 0 {
+                                return Err("Division by zero".into());
+                            }
+                            Value::Int(x / y)
+                        }
+                        (Value::Float(x), Value::Float(y)) => {
+                            if y == 0.0 {
+                                return Err("Division by zero".into());
+                            }
+                            Value::Float(x / y)
+                        }
+                        (Value::Int(x), Value::Float(y)) => {
+                            if y == 0.0 {
+                                return Err("Division by zero".into());
+                            }
+                            Value::Float(x as f64 / y)
+                        }
+                        (Value::Float(x), Value::Int(y)) => {
+                            if y == 0 {
+                                return Err("Division by zero".into());
+                            }
+                            Value::Float(x / y as f64)
+                        }
                         _ => return Err("Invalid operands for /".into()),
                     };
                     frame.set_reg(dst, res);
@@ -389,7 +457,12 @@ impl VM {
                 Instr::Mod { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x), Value::Int(y)) => { if y==0 { return Err("Modulo by zero".into()); } Value::Int(x%y) }
+                        (Value::Int(x), Value::Int(y)) => {
+                            if y == 0 {
+                                return Err("Modulo by zero".into());
+                            }
+                            Value::Int(x % y)
+                        }
                         _ => return Err("Modulo expects integers".into()),
                     };
                     frame.set_reg(dst, res);
@@ -397,7 +470,7 @@ impl VM {
                 Instr::Negate { dst, src } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match frame.get_reg(src) {
-                        Value::Int(x)   => Value::Int(-x),
+                        Value::Int(x) => Value::Int(-x),
                         Value::Float(x) => Value::Float(-x),
                         _ => return Err("Negation expects number".into()),
                     };
@@ -406,13 +479,13 @@ impl VM {
                 Instr::CmpEq { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => x==y,
-                        (Value::Float(x), Value::Float(y)) => x==y,
-                        (Value::Int(x),   Value::Float(y)) => (x as f64)==y,
-                        (Value::Float(x), Value::Int(y))   => x==(y as f64),
-                        (Value::Str(x),   Value::Str(y))   => x==y,
-                        (Value::Bool(x),  Value::Bool(y))  => x==y,
-                        (Value::Null,     Value::Null)     => true,
+                        (Value::Int(x), Value::Int(y)) => x == y,
+                        (Value::Float(x), Value::Float(y)) => x == y,
+                        (Value::Int(x), Value::Float(y)) => (x as f64) == y,
+                        (Value::Float(x), Value::Int(y)) => x == (y as f64),
+                        (Value::Str(x), Value::Str(y)) => x == y,
+                        (Value::Bool(x), Value::Bool(y)) => x == y,
+                        (Value::Null, Value::Null) => true,
                         _ => false,
                     };
                     frame.set_reg(dst, Value::Bool(res));
@@ -420,13 +493,13 @@ impl VM {
                 Instr::CmpNe { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => x!=y,
-                        (Value::Float(x), Value::Float(y)) => x!=y,
-                        (Value::Int(x),   Value::Float(y)) => (x as f64)!=y,
-                        (Value::Float(x), Value::Int(y))   => x!=(y as f64),
-                        (Value::Str(x),   Value::Str(y))   => x!=y,
-                        (Value::Bool(x),  Value::Bool(y))  => x!=y,
-                        (Value::Null,     Value::Null)     => false,
+                        (Value::Int(x), Value::Int(y)) => x != y,
+                        (Value::Float(x), Value::Float(y)) => x != y,
+                        (Value::Int(x), Value::Float(y)) => (x as f64) != y,
+                        (Value::Float(x), Value::Int(y)) => x != (y as f64),
+                        (Value::Str(x), Value::Str(y)) => x != y,
+                        (Value::Bool(x), Value::Bool(y)) => x != y,
+                        (Value::Null, Value::Null) => false,
                         _ => true,
                     };
                     frame.set_reg(dst, Value::Bool(res));
@@ -434,11 +507,11 @@ impl VM {
                 Instr::CmpLt { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => x<y,
-                        (Value::Float(x), Value::Float(y)) => x<y,
-                        (Value::Int(x),   Value::Float(y)) => (x as f64)<y,
-                        (Value::Float(x), Value::Int(y))   => x<(y as f64),
-                        (Value::Str(x),   Value::Str(y))   => x<y,
+                        (Value::Int(x), Value::Int(y)) => x < y,
+                        (Value::Float(x), Value::Float(y)) => x < y,
+                        (Value::Int(x), Value::Float(y)) => (x as f64) < y,
+                        (Value::Float(x), Value::Int(y)) => x < (y as f64),
+                        (Value::Str(x), Value::Str(y)) => x < y,
                         _ => return Err("Invalid operands for <".into()),
                     };
                     frame.set_reg(dst, Value::Bool(res));
@@ -446,11 +519,11 @@ impl VM {
                 Instr::CmpGt { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => x>y,
-                        (Value::Float(x), Value::Float(y)) => x>y,
-                        (Value::Int(x),   Value::Float(y)) => (x as f64)>y,
-                        (Value::Float(x), Value::Int(y))   => x>(y as f64),
-                        (Value::Str(x),   Value::Str(y))   => x>y,
+                        (Value::Int(x), Value::Int(y)) => x > y,
+                        (Value::Float(x), Value::Float(y)) => x > y,
+                        (Value::Int(x), Value::Float(y)) => (x as f64) > y,
+                        (Value::Float(x), Value::Int(y)) => x > (y as f64),
+                        (Value::Str(x), Value::Str(y)) => x > y,
                         _ => return Err("Invalid operands for >".into()),
                     };
                     frame.set_reg(dst, Value::Bool(res));
@@ -458,11 +531,11 @@ impl VM {
                 Instr::CmpLe { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => x<=y,
-                        (Value::Float(x), Value::Float(y)) => x<=y,
-                        (Value::Int(x),   Value::Float(y)) => (x as f64)<=y,
-                        (Value::Float(x), Value::Int(y))   => x<=(y as f64),
-                        (Value::Str(x),   Value::Str(y))   => x<=y,
+                        (Value::Int(x), Value::Int(y)) => x <= y,
+                        (Value::Float(x), Value::Float(y)) => x <= y,
+                        (Value::Int(x), Value::Float(y)) => (x as f64) <= y,
+                        (Value::Float(x), Value::Int(y)) => x <= (y as f64),
+                        (Value::Str(x), Value::Str(y)) => x <= y,
                         _ => return Err("Invalid operands for <=".into()),
                     };
                     frame.set_reg(dst, Value::Bool(res));
@@ -470,11 +543,11 @@ impl VM {
                 Instr::CmpGe { dst, a, b } => {
                     let frame = self.frames.last_mut().unwrap();
                     let res = match (frame.get_reg(a), frame.get_reg(b)) {
-                        (Value::Int(x),   Value::Int(y))   => x>=y,
-                        (Value::Float(x), Value::Float(y)) => x>=y,
-                        (Value::Int(x),   Value::Float(y)) => (x as f64)>=y,
-                        (Value::Float(x), Value::Int(y))   => x>=(y as f64),
-                        (Value::Str(x),   Value::Str(y))   => x>=y,
+                        (Value::Int(x), Value::Int(y)) => x >= y,
+                        (Value::Float(x), Value::Float(y)) => x >= y,
+                        (Value::Int(x), Value::Float(y)) => (x as f64) >= y,
+                        (Value::Float(x), Value::Int(y)) => x >= (y as f64),
+                        (Value::Str(x), Value::Str(y)) => x >= y,
                         _ => return Err("Invalid operands for >=".into()),
                     };
                     frame.set_reg(dst, Value::Bool(res));
@@ -499,11 +572,15 @@ impl VM {
                 }
                 Instr::JumpIfFalse { cond, target } => {
                     let frame = self.frames.last_mut().unwrap();
-                    if !frame.get_reg(cond).is_truthy() { frame.ip = target.0 as usize; }
+                    if !frame.get_reg(cond).is_truthy() {
+                        frame.ip = target.0 as usize;
+                    }
                 }
                 Instr::JumpIfTrue { cond, target } => {
                     let frame = self.frames.last_mut().unwrap();
-                    if frame.get_reg(cond).is_truthy() { frame.ip = target.0 as usize; }
+                    if frame.get_reg(cond).is_truthy() {
+                        frame.ip = target.0 as usize;
+                    }
                 }
                 Instr::Return { src } => {
                     let frame = self.frames.pop().unwrap();
@@ -522,16 +599,20 @@ impl VM {
                     match func {
                         Value::NativeFunction(f) => {
                             if arg_vals.iter().any(|(name, _)| name.is_some()) {
-                                return Err("Named arguments are not supported for native functions".into());
+                                return Err(
+                                    "Named arguments are not supported for native functions".into(),
+                                );
                             }
-                            let res = f(self, arg_vals.into_iter().map(|(_, value)| value).collect());
+                            let res =
+                                f(self, arg_vals.into_iter().map(|(_, value)| value).collect());
                             if let Some(d) = dst {
                                 self.frames.last_mut().unwrap().set_reg(d, res);
                             }
                         }
                         Value::Function(c) => {
                             let mut new_frame = CallFrame::new(c, module_dir, dst);
-                            let bound = Self::bind_named_args(&new_frame.chunk.param_names, arg_vals)?;
+                            let bound =
+                                Self::bind_named_args(&new_frame.chunk.param_names, arg_vals)?;
                             for (i, v) in bound.into_iter().enumerate() {
                                 new_frame.set_reg(Reg(i as u8), v);
                             }
@@ -541,10 +622,18 @@ impl VM {
                             let bound = Self::bind_named_args(&fields, arg_vals)?;
                             let mut map = HashMap::new();
                             for (i, field) in fields.iter().enumerate() {
-                                map.insert(field.clone(), bound.get(i).cloned().unwrap_or(Value::Null));
+                                map.insert(
+                                    field.clone(),
+                                    bound.get(i).cloned().unwrap_or(Value::Null),
+                                );
                             }
-                            let val = Value::Struct { class: name, fields: Arc::new(Mutex::new(map)) };
-                            if let Some(d) = dst { self.frames.last_mut().unwrap().set_reg(d, val); }
+                            let val = Value::Struct {
+                                class: name,
+                                fields: Arc::new(Mutex::new(map)),
+                            };
+                            if let Some(d) = dst {
+                                self.frames.last_mut().unwrap().set_reg(d, val);
+                            }
                         }
                         _ => return Err(format!("Not callable: {}", func.type_name())),
                     }
@@ -611,15 +700,21 @@ impl VM {
                         let field_name = frame.chunk.names[ni.0 as usize].clone();
                         map.insert(field_name, frame.get_reg(reg));
                     }
-                    frame.set_reg(dst, Value::Struct { class: Arc::new(class_name), fields: Arc::new(Mutex::new(map)) });
+                    frame.set_reg(
+                        dst,
+                        Value::Struct {
+                            class: Arc::new(class_name),
+                            fields: Arc::new(Mutex::new(map)),
+                        },
+                    );
                 }
                 Instr::Len { dst, src } => {
                     let frame = self.frames.last_mut().unwrap();
                     let n = match frame.get_reg(src) {
-                        Value::Str(s)            => s.chars().count() as i64,
-                        Value::List(l)           => l.lock().unwrap().len() as i64,
-                        Value::Map(m)            => m.lock().unwrap().len() as i64,
-                        Value::Range{start,end}  => (end-start).max(0),
+                        Value::Str(s) => s.chars().count() as i64,
+                        Value::List(l) => l.lock().unwrap().len() as i64,
+                        Value::Map(m) => m.lock().unwrap().len() as i64,
+                        Value::Range { start, end } => (end - start).max(0),
                         _ => 0,
                     };
                     frame.set_reg(dst, Value::Int(n));
@@ -627,7 +722,9 @@ impl VM {
                 Instr::Concat { dst, parts } => {
                     let frame = self.frames.last_mut().unwrap();
                     let mut s = String::new();
-                    for p in parts { s.push_str(&frame.get_reg(p).stringify()); }
+                    for p in parts {
+                        s.push_str(&frame.get_reg(p).stringify());
+                    }
                     frame.set_reg(dst, Value::Str(Arc::new(s)));
                 }
                 Instr::Stringify { dst, src } => {
@@ -662,11 +759,21 @@ impl VM {
                 Instr::LoadField { dst, obj, field } => {
                     let frame = self.frames.last_mut().unwrap();
                     let field_name = frame.chunk.names[field.0 as usize].clone();
-                    let obj_val    = frame.get_reg(obj);
+                    let obj_val = frame.get_reg(obj);
                     let val = match obj_val {
-                        Value::Struct { fields, .. } => fields.lock().unwrap().get(&field_name).cloned().unwrap_or(Value::Null),
-                        Value::Module(m)             => m.get(&field_name).cloned().unwrap_or(Value::Null),
-                        Value::Map(m)                => m.lock().unwrap().get(&field_name).cloned().unwrap_or(Value::Null),
+                        Value::Struct { fields, .. } => fields
+                            .lock()
+                            .unwrap()
+                            .get(&field_name)
+                            .cloned()
+                            .unwrap_or(Value::Null),
+                        Value::Module(m) => m.get(&field_name).cloned().unwrap_or(Value::Null),
+                        Value::Map(m) => m
+                            .lock()
+                            .unwrap()
+                            .get(&field_name)
+                            .cloned()
+                            .unwrap_or(Value::Null),
                         _ => Value::Null,
                     };
                     frame.set_reg(dst, val);
@@ -674,11 +781,15 @@ impl VM {
                 Instr::StoreField { obj, field, src } => {
                     let frame = self.frames.last_mut().unwrap();
                     let field_name = frame.chunk.names[field.0 as usize].clone();
-                    let obj_val    = frame.get_reg(obj);
-                    let val        = frame.get_reg(src);
+                    let obj_val = frame.get_reg(obj);
+                    let val = frame.get_reg(src);
                     match obj_val {
-                        Value::Struct { fields, .. } => { fields.lock().unwrap().insert(field_name, val); }
-                        Value::Map(m)                => { m.lock().unwrap().insert(field_name, val); }
+                        Value::Struct { fields, .. } => {
+                            fields.lock().unwrap().insert(field_name, val);
+                        }
+                        Value::Map(m) => {
+                            m.lock().unwrap().insert(field_name, val);
+                        }
                         _ => return Err("Cannot set field on non-struct/map".into()),
                     }
                 }
@@ -690,20 +801,31 @@ impl VM {
                         (Value::List(l), Value::Int(n)) => {
                             let b = l.lock().unwrap();
                             let idx = if n < 0 { b.len() as i64 + n } else { n };
-                            if idx >= 0 && (idx as usize) < b.len() { b[idx as usize].clone() }
-                            else { return Err(format!("Index {n} out of bounds")); }
+                            if idx >= 0 && (idx as usize) < b.len() {
+                                b[idx as usize].clone()
+                            } else {
+                                return Err(format!("Index {n} out of bounds"));
+                            }
                         }
-                        (Value::Map(m),  Value::Str(s)) => m.lock().unwrap().get(&*s).cloned().unwrap_or(Value::Null),
-                        (Value::Range{start,end}, Value::Int(n)) => {
-                            let len = (end-start).max(0);
-                            if n >= 0 && n < len { Value::Int(start+n) }
-                            else { return Err(format!("Index {n} out of range")); }
+                        (Value::Map(m), Value::Str(s)) => {
+                            m.lock().unwrap().get(&*s).cloned().unwrap_or(Value::Null)
+                        }
+                        (Value::Range { start, end }, Value::Int(n)) => {
+                            let len = (end - start).max(0);
+                            if n >= 0 && n < len {
+                                Value::Int(start + n)
+                            } else {
+                                return Err(format!("Index {n} out of range"));
+                            }
                         }
                         (Value::Str(s), Value::Int(n)) => {
                             let chars: Vec<char> = s.chars().collect();
                             let idx = if n < 0 { chars.len() as i64 + n } else { n };
-                            if idx >= 0 && (idx as usize) < chars.len() { Value::Str(Arc::new(chars[idx as usize].to_string())) }
-                            else { return Err(format!("String index {n} out of bounds")); }
+                            if idx >= 0 && (idx as usize) < chars.len() {
+                                Value::Str(Arc::new(chars[idx as usize].to_string()))
+                            } else {
+                                return Err(format!("String index {n} out of bounds"));
+                            }
                         }
                         _ => return Err("Invalid index operation".into()),
                     };
@@ -718,10 +840,15 @@ impl VM {
                         (Value::List(l), Value::Int(n)) => {
                             let mut b = l.lock().unwrap();
                             let idx = if n < 0 { b.len() as i64 + n } else { n };
-                            if idx >= 0 && (idx as usize) < b.len() { b[idx as usize] = v; }
-                            else { return Err(format!("Index {n} out of bounds")); }
+                            if idx >= 0 && (idx as usize) < b.len() {
+                                b[idx as usize] = v;
+                            } else {
+                                return Err(format!("Index {n} out of bounds"));
+                            }
                         }
-                        (Value::Map(m), Value::Str(s)) => { m.lock().unwrap().insert(s.to_string(), v); }
+                        (Value::Map(m), Value::Str(s)) => {
+                            m.lock().unwrap().insert(s.to_string(), v);
+                        }
                         _ => return Err("Invalid index assignment".into()),
                     }
                 }
@@ -730,7 +857,10 @@ impl VM {
                     let val = frame.get_reg(src);
                     let step_val = step.map(|reg| frame.get_reg(reg));
                     let items = Self::iterator_items(val, step_val)?;
-                    let iter = Value::Iterator { items: Arc::new(Mutex::new(items)), pos: Arc::new(Mutex::new(0)) };
+                    let iter = Value::Iterator {
+                        items: Arc::new(Mutex::new(items)),
+                        pos: Arc::new(Mutex::new(0)),
+                    };
                     frame.set_reg(dst, iter);
                 }
                 Instr::IterNext { var, iter, done } => {
@@ -745,7 +875,8 @@ impl VM {
                             } else {
                                 let item = items_lock[*p].clone();
                                 *p += 1;
-                                drop(p); drop(items_lock);
+                                drop(p);
+                                drop(items_lock);
                                 frame.set_reg(var, item);
                             }
                         }
@@ -782,7 +913,9 @@ impl VM {
                         (Value::Float(x), Value::Float(y)) => (x, y),
                         _ => return Err("DivFloat expects floats".into()),
                     };
-                    if y == 0.0 { return Err("Float division by zero".into()); }
+                    if y == 0.0 {
+                        return Err("Float division by zero".into());
+                    }
                     frame.set_reg(dst, Value::Float(x / y));
                 }
             }
@@ -791,14 +924,21 @@ impl VM {
 
     fn return_from_frame(&mut self, val: Value, return_reg: Option<Reg>) -> Option<Value> {
         if let Some(frame) = self.frames.last_mut() {
-            if let Some(dst) = return_reg { frame.set_reg(dst, val); }
+            if let Some(dst) = return_reg {
+                frame.set_reg(dst, val);
+            }
             None
         } else {
             Some(val)
         }
     }
 
-    fn invoke(&mut self, func: Value, args: Vec<RuntimeCallArg>, module_dir: PathBuf) -> Result<Value, String> {
+    fn invoke(
+        &mut self,
+        func: Value,
+        args: Vec<RuntimeCallArg>,
+        module_dir: PathBuf,
+    ) -> Result<Value, String> {
         match func {
             Value::NativeFunction(f) => {
                 if args.iter().any(|(name, _)| name.is_some()) {
@@ -809,7 +949,9 @@ impl VM {
             Value::Function(c) => {
                 let mut frame = CallFrame::new(c, module_dir, None);
                 let bound = Self::bind_named_args(&frame.chunk.param_names, args)?;
-                for (i, v) in bound.into_iter().enumerate() { frame.set_reg(Reg(i as u8), v); }
+                for (i, v) in bound.into_iter().enumerate() {
+                    frame.set_reg(Reg(i as u8), v);
+                }
                 self.frames.push(frame);
                 self.execute()
             }
@@ -819,7 +961,10 @@ impl VM {
                 for (i, field) in fields.iter().enumerate() {
                     map.insert(field.clone(), bound.get(i).cloned().unwrap_or(Value::Null));
                 }
-                Ok(Value::Struct { class: name, fields: Arc::new(Mutex::new(map)) })
+                Ok(Value::Struct {
+                    class: name,
+                    fields: Arc::new(Mutex::new(map)),
+                })
             }
             _ => Err("Not a function".into()),
         }

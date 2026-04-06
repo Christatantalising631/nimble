@@ -74,20 +74,29 @@ pub enum Token {
     Eof,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Span {
-    pub line: usize,
-    pub col: usize,
+    pub start: usize,
     pub len: usize,
 }
 
-impl Default for Span {
-    fn default() -> Self {
-        Self {
-            line: 1,
-            col: 1,
-            len: 1,
-        }
+impl Span {
+    pub const fn new(start: usize, len: usize) -> Self {
+        Self { start, len }
+    }
+
+    pub const fn end(self) -> usize {
+        self.start + self.len
+    }
+
+    pub fn join(self, other: Self) -> Self {
+        let start = self.start.min(other.start);
+        let end = self.end().max(other.end());
+        Self::new(start, end.saturating_sub(start))
+    }
+
+    pub const fn point(offset: usize) -> Self {
+        Self::new(offset, 0)
     }
 }
 

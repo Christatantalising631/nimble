@@ -10,7 +10,11 @@ pub struct JitCache {
 }
 
 impl JitCache {
-    pub fn new() -> Self { Self { entries: HashMap::new() } }
+    pub fn new() -> Self {
+        Self {
+            entries: HashMap::new(),
+        }
+    }
 
     pub fn get(&self, key: &str) -> Option<*const u8> {
         self.entries.get(key).copied()

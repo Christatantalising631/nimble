@@ -335,7 +335,7 @@ enum FfiTypeDesc {
 
 struct CStringArg {
     _buf: CString,
-    ptr:  *const c_char,
+    ptr: *const c_char,
 }
 
 enum FfiArgStorage {
@@ -455,8 +455,7 @@ fn resolve_library_path(vm: &VM, path: &str) -> String {
         return library_path.to_string_lossy().into_owned();
     }
 
-    let has_explicit_relative =
-        path.starts_with('.') || path.contains('/') || path.contains('\\');
+    let has_explicit_relative = path.starts_with('.') || path.contains('/') || path.contains('\\');
     let module_relative = vm.current_module_dir_path().join(&library_path);
 
     if has_explicit_relative || module_relative.exists() {
@@ -624,7 +623,10 @@ unsafe fn ffi_invoke(
 
     let ffi_args: Vec<Arg> = prepared.iter().map(FfiArgStorage::as_arg).collect();
     let cif = Cif::new(
-        arg_types.iter().map(FfiTypeDesc::ffi_type).collect::<Vec<_>>(),
+        arg_types
+            .iter()
+            .map(FfiTypeDesc::ffi_type)
+            .collect::<Vec<_>>(),
         ret_type.ffi_type(),
     );
     let code_ptr = CodePtr(*symbol);
@@ -660,7 +662,7 @@ unsafe fn ffi_invoke(
         FfiTypeDesc::F32 => Ok(Value::Float(cif.call::<f32>(code_ptr, &ffi_args) as f64)),
         FfiTypeDesc::F64 => Ok(Value::Float(cif.call::<f64>(code_ptr, &ffi_args))),
         FfiTypeDesc::Pointer => Ok(Value::Int(
-            cif.call::<*const c_void>(code_ptr, &ffi_args) as usize as i64,
+            cif.call::<*const c_void>(code_ptr, &ffi_args) as usize as i64
         )),
         FfiTypeDesc::CString => {
             let ptr = cif.call::<*const c_char>(code_ptr, &ffi_args);
@@ -723,8 +725,12 @@ pub fn builtin_ffi_open_any(vm: &mut VM, args: Vec<Value>) -> Value {
 pub fn builtin_ffi_close(_vm: &mut VM, args: Vec<Value>) -> Value {
     match args.get(0) {
         Some(Value::FfiLibrary(_)) | Some(Value::Str(_)) => Value::Null,
-        Some(_) => Value::Error(Arc::new("ffi.close expects an ffi handle or string path".into())),
-        None => Value::Error(Arc::new("ffi.close expects an ffi handle or string path".into())),
+        Some(_) => Value::Error(Arc::new(
+            "ffi.close expects an ffi handle or string path".into(),
+        )),
+        None => Value::Error(Arc::new(
+            "ffi.close expects an ffi handle or string path".into(),
+        )),
     }
 }
 
@@ -785,18 +791,25 @@ pub fn builtin_ffi_call(_vm: &mut VM, args: Vec<Value>) -> Value {
         Ok(types) => types,
         Err(err) => return Value::Error(Arc::new(err)),
     };
-    let ret_type = match ffi_string(&args[3], "ret_type")
-        .and_then(|name| FfiTypeDesc::from_name(&name))
-    {
-        Ok(ret) => ret,
-        Err(err) => return Value::Error(Arc::new(err)),
-    };
+    let ret_type =
+        match ffi_string(&args[3], "ret_type").and_then(|name| FfiTypeDesc::from_name(&name)) {
+            Ok(ret) => ret,
+            Err(err) => return Value::Error(Arc::new(err)),
+        };
     let call_args = match ffi_list(&args[4], "args") {
         Ok(args) => args,
         Err(err) => return Value::Error(Arc::new(err)),
     };
 
-    match unsafe { ffi_invoke(&library_path, &symbol_name, &arg_types, ret_type, &call_args) } {
+    match unsafe {
+        ffi_invoke(
+            &library_path,
+            &symbol_name,
+            &arg_types,
+            ret_type,
+            &call_args,
+        )
+    } {
         Ok(value) => value,
         Err(err) => Value::Error(Arc::new(err)),
     }
@@ -1938,7 +1951,9 @@ pub fn builtin_list_contains(_vm: &mut VM, args: Vec<Value>) -> Value {
         None => return Value::Bool(false),
     };
     for item in &list {
-        if item.stringify() == target { return Value::Bool(true); }
+        if item.stringify() == target {
+            return Value::Bool(true);
+        }
     }
     Value::Bool(false)
 }
@@ -1949,10 +1964,21 @@ pub fn builtin_list_sort_inplace(_vm: &mut VM, args: Vec<Value>) -> Value {
         _ => return Value::Error(Arc::new("sort expects a list".into())),
     };
     let mut list = list_arc.lock().unwrap();
-    if list.iter().all(|v| matches!(v, Value::Int(_) | Value::Float(_))) {
+    if list
+        .iter()
+        .all(|v| matches!(v, Value::Int(_) | Value::Float(_)))
+    {
         list.sort_by(|a, b| {
-            let ax = match a { Value::Int(n) => *n as f64, Value::Float(f) => *f, _ => 0.0 };
-            let bx = match b { Value::Int(n) => *n as f64, Value::Float(f) => *f, _ => 0.0 };
+            let ax = match a {
+                Value::Int(n) => *n as f64,
+                Value::Float(f) => *f,
+                _ => 0.0,
+            };
+            let bx = match b {
+                Value::Int(n) => *n as f64,
+                Value::Float(f) => *f,
+                _ => 0.0,
+            };
             ax.partial_cmp(&bx).unwrap_or(std::cmp::Ordering::Equal)
         });
         Value::Null
@@ -2000,15 +2026,17 @@ pub fn builtin_math_div(_vm: &mut VM, args: Vec<Value>) -> Value {
         return Value::Error(Arc::new("div expects two numbers".into()));
     }
     let a = match args.get(0) {
-        Some(Value::Int(n))   => *n as f64,
+        Some(Value::Int(n)) => *n as f64,
         Some(Value::Float(f)) => *f,
         _ => return Value::Error(Arc::new("a must be number".into())),
     };
     let b = match args.get(1) {
-        Some(Value::Int(n))   => *n as f64,
+        Some(Value::Int(n)) => *n as f64,
         Some(Value::Float(f)) => *f,
         _ => return Value::Error(Arc::new("b must be number".into())),
     };
-    if b == 0.0 { return Value::Error(Arc::new("division by zero".into())); }
+    if b == 0.0 {
+        return Value::Error(Arc::new("division by zero".into()));
+    }
     Value::Float(a / b)
 }

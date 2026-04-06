@@ -1,5 +1,6 @@
 pub mod error;
 pub use error::{
-    install_diagnostic_hook, print_diagnostic, report_for_span, DiagnosticKind, LexError,
-    NimbleDiagnostic, ParseError,
+    emit_report, install_diagnostic_hook, print_diagnostic, report_for_span,
+    report_for_span_with_help, to_source_span, DiagnosticKind, LexError, LexErrorKind, NimbleError,
+    NimbleResult, ParseError, ParseErrorKind, SemanticError, SourceFile,
 };

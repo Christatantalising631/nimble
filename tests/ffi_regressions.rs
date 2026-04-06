@@ -33,7 +33,10 @@ fn run_script(script: &str) -> String {
 fn ffi_strlen_example_runs() {
     let stdout = run_script("examples/stdlib/ffi/strlen.nmb");
     assert!(stdout.contains("loaded "), "stdout was:\n{stdout}");
-    assert!(stdout.contains("strlen('nimble ffi') = 10"), "stdout was:\n{stdout}");
+    assert!(
+        stdout.contains("strlen('nimble ffi') = 10"),
+        "stdout was:\n{stdout}"
+    );
 }
 
 #[test]
@@ -45,5 +48,8 @@ fn ffi_abs_example_runs() {
 #[test]
 fn ffi_open_any_example_runs() {
     let stdout = run_script("examples/stdlib/ffi/open_any.nmb");
-    assert!(stdout.contains("open_any abs(-7) = 7"), "stdout was:\n{stdout}");
+    assert!(
+        stdout.contains("open_any abs(-7) = 7"),
+        "stdout was:\n{stdout}"
+    );
 }

@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub struct CallFrame {
-    pub chunk:      Arc<FunctionChunk>,
-    pub ip:         usize,
-    pub registers:  Vec<Value>,
+    pub chunk: Arc<FunctionChunk>,
+    pub ip: usize,
+    pub registers: Vec<Value>,
     pub return_reg: Option<Reg>,
     pub module_dir: PathBuf,
 }
@@ -14,7 +14,13 @@ pub struct CallFrame {
 impl CallFrame {
     pub fn new(chunk: Arc<FunctionChunk>, module_dir: PathBuf, return_reg: Option<Reg>) -> Self {
         let num_regs = (chunk.num_registers as usize).max(64);
-        Self { chunk, ip: 0, registers: vec![Value::Null; num_regs], return_reg, module_dir }
+        Self {
+            chunk,
+            ip: 0,
+            registers: vec![Value::Null; num_regs],
+            return_reg,
+            module_dir,
+        }
     }
 
     #[inline]

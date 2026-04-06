@@ -40,11 +40,19 @@ impl ModuleResolver {
         Self { stdlib_path }
     }
 
-    pub fn resolve(&self, source: &str, current_dir: &Path) -> Result<(Arc<FunctionChunk>, PathBuf), String> {
+    pub fn resolve(
+        &self,
+        source: &str,
+        current_dir: &Path,
+    ) -> Result<(Arc<FunctionChunk>, PathBuf), String> {
         let path = if source.starts_with('.') {
             let mut p = current_dir.to_path_buf();
             p.push(source);
-            if p.is_dir() { p.push("mod.nmb"); } else { p.set_extension("nmb"); }
+            if p.is_dir() {
+                p.push("mod.nmb");
+            } else {
+                p.set_extension("nmb");
+            }
             p
         } else {
             let mut p = self.stdlib_path.clone();
@@ -63,7 +71,11 @@ impl ModuleResolver {
                 let chunk = self.compile_module(&content, source)?;
                 return Ok((chunk, alt));
             }
-            return Err(format!("Module '{}' not found (looked in {})", source, path.display()));
+            return Err(format!(
+                "Module '{}' not found (looked in {})",
+                source,
+                path.display()
+            ));
         }
 
         let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
@@ -73,15 +85,18 @@ impl ModuleResolver {
 
     fn compile_module(&self, content: &str, name: &str) -> Result<Arc<FunctionChunk>, String> {
         let mut lexer = Lexer::new(content);
-        let tokens = lexer.tokenize().map_err(|e| {
-            format!("Lexer error in module '{}' at {}:{}: {}", name, e.span.line, e.span.col, e.message)
-        })?;
+        let tokens = lexer
+            .tokenize()
+            .map_err(|e| format!("Lexer error in module '{}': {}", name, e.message))?;
         let mut parser = Parser::new(tokens);
         let stmts = match parser.parse() {
             Ok(s) => s,
             Err(errs) => {
                 let first = errs.into_iter().next().unwrap();
-                return Err(format!("Parser error in module '{}' at {}:{}: {}", name, first.span.line, first.span.col, first.message));
+                return Err(format!(
+                    "Parser error in module '{}': {}",
+                    name, first.message
+                ));
             }
         };
         let mut compiler = Compiler::new(name.to_string());

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct Module {
-    pub name:  String,
+    pub name: String,
     pub chunk: Arc<FunctionChunk>,
 }
 
@@ -15,7 +15,9 @@ pub struct ModuleRegistry {
 
 impl ModuleRegistry {
     pub fn new() -> Self {
-        Self { loaded: HashMap::new() }
+        Self {
+            loaded: HashMap::new(),
+        }
     }
 
     pub fn register(&mut self, name: String, module: Arc<Module>) {

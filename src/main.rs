@@ -1,15 +1,14 @@
 use clap::{Parser as ClapParser, Subcommand};
 use colored::Colorize;
-use miette::Report;
 use nimble::compiler::Compiler;
-use nimble::error::{install_diagnostic_hook, print_diagnostic, report_for_span, DiagnosticKind};
+use nimble::error::{emit_report, install_diagnostic_hook, NimbleError, NimbleResult, SourceFile};
 use nimble::lexer::Lexer;
 use nimble::parser::{ast::Stmt, Parser};
 use nimble::repl;
 use nimble::types::infer::Inferencer;
 use nimble::vm::VM;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(ClapParser)]
@@ -22,103 +21,124 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Run a .nmb file
     Run {
         file: PathBuf,
         #[arg(last = true)]
         args: Vec<String>,
     },
-    /// Type check only
-    Check { file: PathBuf },
-    /// Start the interactive REPL
+    Check {
+        file: PathBuf,
+    },
     Repl,
-    /// Print version info
     Version,
 }
 
 fn main() {
     install_diagnostic_hook();
-    let cli = Cli::parse();
+    if let Err(report) = try_main() {
+        emit_report(&report);
+        std::process::exit(1);
+    }
+}
 
+fn try_main() -> NimbleResult<()> {
+    let cli = Cli::parse();
     match cli.command {
-        Some(Commands::Run { file, args }) => match fs::read_to_string(&file) {
-            Ok(source) => run_source(&source, Some(&file), args),
-            Err(err) => print_diagnostic(
-                Report::msg(format!("Failed to read {}: {}", file.display(), err)),
-                DiagnosticKind::Error,
-                Some("I/O"),
-            ),
-        },
+        Some(Commands::Run { file, args }) => run_file(&file, args),
         Some(Commands::Check { file }) => check_file(&file),
         Some(Commands::Repl) | None => repl::repl::start(),
-        Some(Commands::Version) => println!("Nimble v0.1.0"),
+        Some(Commands::Version) => {
+            println!("Nimble v0.1.0");
+            Ok(())
+        }
     }
 }
 
-fn parse_source(name: &str, source: &str) -> Result<Vec<Stmt>, ()> {
-    let mut lexer = Lexer::new(source);
-    let tokens = match lexer.tokenize() {
-        Ok(t) => t,
-        Err(e) => {
-            let report = report_for_span(name, source, format!("Lexer error: {}", e.message), e.span, "here");
-            print_diagnostic(report, DiagnosticKind::Error, Some("lexical"));
-            return Err(());
-        }
-    };
+fn read_source_file(path: &PathBuf) -> NimbleResult<SourceFile> {
+    let source = fs::read_to_string(path).map_err(|source| {
+        miette::Report::new(NimbleError::Io {
+            path: path.display().to_string(),
+            source,
+        })
+    })?;
+    Ok(SourceFile::new(path.display().to_string(), source))
+}
+
+fn parse_source(source_file: &SourceFile) -> NimbleResult<Vec<Stmt>> {
+    let mut lexer = Lexer::new(source_file.source());
+    let tokens = lexer
+        .tokenize()
+        .map_err(|error| miette::Report::new(NimbleError::from_lex(source_file, error)))?;
 
     let mut parser = Parser::new(tokens);
-    match parser.parse() {
-        Ok(stmts) => Ok(stmts),
-        Err(errs) => {
-            for err in errs {
-                let report = report_for_span(name, source, format!("Parser error: {}", err.message), err.span, "here");
-                print_diagnostic(report, DiagnosticKind::Error, Some("parser"));
-            }
-            Err(())
+    parser.parse().map_err(|errors| {
+        let mut diagnostics = errors
+            .into_iter()
+            .map(|error| NimbleError::from_parse(source_file, error))
+            .collect::<Vec<_>>();
+
+        if diagnostics.len() == 1 {
+            miette::Report::new(diagnostics.remove(0))
+        } else {
+            miette::Report::new(NimbleError::multiple(
+                source_file,
+                format!("failed to parse `{}`", source_file.name()),
+                diagnostics,
+            ))
         }
-    }
+    })
 }
 
-fn check_file(path: &PathBuf) {
-    println!("{}", format!("🔍 Checking {} ...", path.display()).bright_blue().bold());
-    let source = match fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(err) => {
-            print_diagnostic(Report::msg(format!("Failed to read {}: {}", path.display(), err)), DiagnosticKind::Error, Some("check"));
-            return;
-        }
-    };
-    let name = path.display().to_string();
-    let stmts = match parse_source(&name, &source) { Ok(s) => s, Err(_) => return };
-    let mut inf = Inferencer::new();
-    match inf.infer_stmts(&stmts) {
-        Ok(_) => println!("{}", "✅ Type check passed.".green().bold()),
-        Err(e) => print_diagnostic(Report::msg(format!("Type error: {}", e)), DiagnosticKind::Error, Some("type inference")),
-    }
+fn type_check(source_file: &SourceFile, stmts: &[Stmt]) -> NimbleResult<()> {
+    let mut inferencer = Inferencer::new();
+    inferencer
+        .infer_stmts(stmts)
+        .map_err(|error| miette::Report::new(NimbleError::from_semantic(source_file, error)))
 }
 
-fn run_source(source: &str, path: Option<&PathBuf>, script_args: Vec<String>) {
-    let name = path.map(|p| p.display().to_string()).unwrap_or_else(|| "<stdin>".to_string());
-    let stmts = match parse_source(&name, source) { Ok(s) => s, Err(_) => return };
-    let mut inf = Inferencer::new();
-    if let Err(e) = inf.infer_stmts(&stmts) {
-        print_diagnostic(Report::msg(format!("Type error: {}", e)), DiagnosticKind::Error, Some("type inference"));
-        return;
-    }
+fn check_file(path: &PathBuf) -> NimbleResult<()> {
+    println!(
+        "{}",
+        format!("Checking {} ...", path.display())
+            .bright_blue()
+            .bold()
+    );
+    let source_file = read_source_file(path)?;
+    let stmts = parse_source(&source_file)?;
+    type_check(&source_file, &stmts)?;
+    println!("{}", "Type check passed.".green().bold());
+    Ok(())
+}
+
+fn run_file(path: &PathBuf, script_args: Vec<String>) -> NimbleResult<()> {
+    let source_file = read_source_file(path)?;
+    run_source(
+        &source_file,
+        Some(path.parent().unwrap_or_else(|| Path::new("."))),
+        script_args,
+    )
+}
+
+fn run_source(
+    source_file: &SourceFile,
+    working_dir: Option<&Path>,
+    script_args: Vec<String>,
+) -> NimbleResult<()> {
+    let stmts = parse_source(source_file)?;
+    type_check(source_file, &stmts)?;
 
     let mut compiler = Compiler::new("main".into());
     let chunk = compiler.compile_stmts(&stmts);
 
     let mut vm = VM::new();
     vm.set_script_args(script_args);
-    let result = if let Some(p) = path {
-        let dir = p.parent().unwrap_or_else(|| std::path::Path::new(".")).to_path_buf();
-        vm.run_with_dir(Arc::clone(&chunk), dir)
+    let result = if let Some(dir) = working_dir {
+        vm.run_with_dir(Arc::clone(&chunk), dir.to_path_buf())
     } else {
         vm.run(Arc::clone(&chunk))
     };
 
-    if let Err(e) = result {
-        print_diagnostic(Report::msg(format!("Runtime error: {}", e)), DiagnosticKind::Error, Some("runtime"));
-    }
+    result
+        .map(|_| ())
+        .map_err(|message| miette::Report::new(NimbleError::runtime(source_file, message)))
 }

@@ -22,10 +22,15 @@ pub enum Inst {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum IrType { Int, Float, Bool, Ptr }
+pub enum IrType {
+    Int,
+    Float,
+    Bool,
+    Ptr,
+}
 
 pub struct BasicBlock {
-    pub insts:      Vec<(IrVal, Inst)>,
+    pub insts: Vec<(IrVal, Inst)>,
     pub terminator: Terminator,
 }
 
@@ -37,12 +42,17 @@ pub enum Terminator {
 
 /// SSA-form program.
 pub struct SSA {
-    pub blocks:   Vec<BasicBlock>,
+    pub blocks: Vec<BasicBlock>,
     pub next_val: u32,
 }
 
 impl SSA {
-    pub fn new() -> Self { Self { blocks: Vec::new(), next_val: 0 } }
+    pub fn new() -> Self {
+        Self {
+            blocks: Vec::new(),
+            next_val: 0,
+        }
+    }
 
     pub fn fresh(&mut self) -> IrVal {
         let v = IrVal(self.next_val);

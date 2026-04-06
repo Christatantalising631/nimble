@@ -1,12 +1,12 @@
 use super::token::{Span, Token};
 use crate::error::LexError;
 use std::iter::Peekable;
-use std::str::Chars;
+use std::str::CharIndices;
 
 pub struct Lexer<'a> {
-    source: Peekable<Chars<'a>>,
-    line: usize,
-    col: usize,
+    source_text: &'a str,
+    chars: Peekable<CharIndices<'a>>,
+    offset: usize,
     indent_stack: Vec<usize>,
     pending_tokens: Vec<(Token, Span)>,
     at_line_start: bool,
@@ -16,9 +16,9 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            source: source.chars().peekable(),
-            line: 1,
-            col: 1,
+            source_text: source,
+            chars: source.char_indices().peekable(),
+            offset: 0,
             indent_stack: vec![0],
             pending_tokens: Vec::new(),
             at_line_start: true,
@@ -27,17 +27,20 @@ impl<'a> Lexer<'a> {
     }
 
     fn peek(&mut self) -> Option<char> {
-        self.source.peek().cloned()
+        self.chars.peek().map(|(_, ch)| *ch)
     }
-    fn advance(&mut self) -> Option<char> {
-        let c = self.source.next()?;
-        if c == '\n' {
-            self.line += 1;
-            self.col = 1;
-        } else {
-            self.col += 1;
+
+    fn current_char_span(&mut self) -> Span {
+        match self.chars.peek() {
+            Some((idx, ch)) => Span::new(*idx, ch.len_utf8()),
+            None => Span::point(self.source_text.len()),
         }
-        Some(c)
+    }
+
+    fn advance(&mut self) -> Option<(usize, char)> {
+        let (idx, ch) = self.chars.next()?;
+        self.offset = idx + ch.len_utf8();
+        Some((idx, ch))
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<(Token, Span)>, LexError> {
@@ -66,209 +69,171 @@ impl<'a> Lexer<'a> {
         }
 
         self.skip_whitespace();
-        let start_line = self.line;
-        let start_col = self.col;
-
-        let c = match self.advance() {
-            Some(c) => c,
+        let (token, span) = match self.advance() {
+            Some((start, c)) => match c {
+                '#' => {
+                    while let Some(pc) = self.peek() {
+                        if pc == '\n' {
+                            break;
+                        }
+                        self.advance();
+                    }
+                    return self.next_token();
+                }
+                '\n' => {
+                    self.at_line_start = true;
+                    if self.paren_level == 0 {
+                        (Token::Newline, Span::new(start, 1))
+                    } else {
+                        return self.next_token();
+                    }
+                }
+                '(' => {
+                    self.paren_level += 1;
+                    (Token::LParen, Span::new(start, 1))
+                }
+                ')' => {
+                    if self.paren_level > 0 {
+                        self.paren_level -= 1;
+                    }
+                    (Token::RParen, Span::new(start, 1))
+                }
+                '{' => {
+                    self.paren_level += 1;
+                    (Token::LBrace, Span::new(start, 1))
+                }
+                '}' => {
+                    if self.paren_level > 0 {
+                        self.paren_level -= 1;
+                    }
+                    (Token::RBrace, Span::new(start, 1))
+                }
+                '[' => {
+                    self.paren_level += 1;
+                    (Token::LBracket, Span::new(start, 1))
+                }
+                ']' => {
+                    if self.paren_level > 0 {
+                        self.paren_level -= 1;
+                    }
+                    (Token::RBracket, Span::new(start, 1))
+                }
+                ',' => (Token::Comma, Span::new(start, 1)),
+                ':' => (Token::Colon, Span::new(start, 1)),
+                '?' => (Token::Question, Span::new(start, 1)),
+                '|' => (Token::Pipe, Span::new(start, 1)),
+                '.' => {
+                    if self.peek() == Some('.') {
+                        self.advance();
+                        (Token::DotDot, Span::new(start, self.offset - start))
+                    } else {
+                        (Token::Dot, Span::new(start, 1))
+                    }
+                }
+                '+' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        (Token::PlusEq, Span::new(start, self.offset - start))
+                    } else {
+                        (Token::Plus, Span::new(start, 1))
+                    }
+                }
+                '-' => match self.peek() {
+                    Some('=') => {
+                        self.advance();
+                        (Token::MinusEq, Span::new(start, self.offset - start))
+                    }
+                    Some('>') => {
+                        self.advance();
+                        (Token::Arrow, Span::new(start, self.offset - start))
+                    }
+                    _ => (Token::Minus, Span::new(start, 1)),
+                },
+                '*' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        (Token::StarEq, Span::new(start, self.offset - start))
+                    } else {
+                        (Token::Star, Span::new(start, 1))
+                    }
+                }
+                '/' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        (Token::SlashEq, Span::new(start, self.offset - start))
+                    } else {
+                        (Token::Slash, Span::new(start, 1))
+                    }
+                }
+                '%' => (Token::Percent, Span::new(start, 1)),
+                '=' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        (Token::EqEq, Span::new(start, self.offset - start))
+                    } else {
+                        (Token::Assign, Span::new(start, 1))
+                    }
+                }
+                '!' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        (Token::BangEq, Span::new(start, self.offset - start))
+                    } else {
+                        return Err(LexError::invalid_token("!", Span::new(start, 1)));
+                    }
+                }
+                '<' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        (Token::LtEq, Span::new(start, self.offset - start))
+                    } else {
+                        (Token::Lt, Span::new(start, 1))
+                    }
+                }
+                '>' => {
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        (Token::GtEq, Span::new(start, self.offset - start))
+                    } else {
+                        (Token::Gt, Span::new(start, 1))
+                    }
+                }
+                '"' | '\'' => return self.lex_string(c, start),
+                c if c.is_ascii_digit() => {
+                    let token = self.lex_number(c, start)?;
+                    (token, Span::new(start, self.offset - start))
+                }
+                c if c.is_alphabetic() || c == '_' => {
+                    let token = self.lex_identifier(c);
+                    (token, Span::new(start, self.offset - start))
+                }
+                other => {
+                    return Err(LexError::invalid_token(
+                        other.to_string(),
+                        Span::new(start, other.len_utf8()),
+                    ));
+                }
+            },
             None => {
                 while self.indent_stack.len() > 1 {
                     self.indent_stack.pop();
-                    self.pending_tokens.push((
-                        Token::Dedent,
-                        Span {
-                            line: start_line,
-                            col: start_col,
-                            len: 1,
-                        },
-                    ));
+                    self.pending_tokens
+                        .push((Token::Dedent, Span::point(self.offset)));
                 }
                 return if !self.pending_tokens.is_empty() {
                     Ok(self.pending_tokens.remove(0))
                 } else {
-                    Ok((
-                        Token::Eof,
-                        Span {
-                            line: start_line,
-                            col: start_col,
-                            len: 1,
-                        },
-                    ))
+                    Ok((Token::Eof, Span::point(self.offset)))
                 };
             }
         };
 
-        let token = match c {
-            '#' => {
-                while let Some(pc) = self.peek() {
-                    if pc == '\n' {
-                        break;
-                    }
-                    self.advance();
-                }
-                return self.next_token();
-            }
-            '\n' => {
-                self.at_line_start = true;
-                // Only emit Newline if not inside parens
-                if self.paren_level == 0 {
-                    Token::Newline
-                } else {
-                    return self.next_token();
-                }
-            }
-            '(' => {
-                self.paren_level += 1;
-                Token::LParen
-            }
-            ')' => {
-                if self.paren_level > 0 {
-                    self.paren_level -= 1;
-                }
-                Token::RParen
-            }
-            '{' => {
-                self.paren_level += 1;
-                Token::LBrace
-            }
-            '}' => {
-                if self.paren_level > 0 {
-                    self.paren_level -= 1;
-                }
-                Token::RBrace
-            }
-            '[' => {
-                self.paren_level += 1;
-                Token::LBracket
-            }
-            ']' => {
-                if self.paren_level > 0 {
-                    self.paren_level -= 1;
-                }
-                Token::RBracket
-            }
-            ',' => Token::Comma,
-            ':' => Token::Colon,
-            '?' => Token::Question,
-            '|' => Token::Pipe,
-            '.' => {
-                if self.peek() == Some('.') {
-                    self.advance();
-                    Token::DotDot
-                } else {
-                    Token::Dot
-                }
-            }
-            '+' => {
-                if self.peek() == Some('=') {
-                    self.advance();
-                    Token::PlusEq
-                } else {
-                    Token::Plus
-                }
-            }
-            '-' => match self.peek() {
-                Some('=') => {
-                    self.advance();
-                    Token::MinusEq
-                }
-                Some('>') => {
-                    self.advance();
-                    Token::Arrow
-                }
-                _ => Token::Minus,
-            },
-            '*' => {
-                if self.peek() == Some('=') {
-                    self.advance();
-                    Token::StarEq
-                } else {
-                    Token::Star
-                }
-            }
-            '/' => {
-                if self.peek() == Some('=') {
-                    self.advance();
-                    Token::SlashEq
-                } else {
-                    Token::Slash
-                }
-            }
-            '%' => Token::Percent,
-            '=' => {
-                if self.peek() == Some('=') {
-                    self.advance();
-                    Token::EqEq
-                } else {
-                    Token::Assign
-                }
-            }
-            '!' => {
-                if self.peek() == Some('=') {
-                    self.advance();
-                    Token::BangEq
-                } else {
-                    return Err(LexError::new(
-                        "Unexpected character '!'",
-                        Span {
-                            line: start_line,
-                            col: start_col,
-                            len: 1,
-                        },
-                    ));
-                }
-            }
-            '<' => {
-                if self.peek() == Some('=') {
-                    self.advance();
-                    Token::LtEq
-                } else {
-                    Token::Lt
-                }
-            }
-            '>' => {
-                if self.peek() == Some('=') {
-                    self.advance();
-                    Token::GtEq
-                } else {
-                    Token::Gt
-                }
-            }
-            '"' | '\'' => return self.lex_string(c, start_line, start_col),
-            c if c.is_ascii_digit() => self.lex_number(c),
-            c if c.is_alphabetic() || c == '_' => self.lex_identifier(c),
-            _ => {
-                return Err(LexError::new(
-                    format!("Unexpected character '{}'", c),
-                    Span {
-                        line: start_line,
-                        col: start_col,
-                        len: 1,
-                    },
-                ))
-            }
-        };
-        let mut len = if self.line == start_line {
-            self.col.saturating_sub(start_col)
-        } else {
-            1
-        };
-        if len == 0 {
-            len = 1;
-        }
-        Ok((
-            token,
-            Span {
-                line: start_line,
-                col: start_col,
-                len,
-            },
-        ))
+        Ok((token, span))
     }
 
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.peek() {
-            if c == ' ' || c == '\t' || c == '\r' {
+            if matches!(c, ' ' | '\t' | '\r') {
                 self.advance();
             } else {
                 break;
@@ -278,7 +243,8 @@ impl<'a> Lexer<'a> {
 
     fn handle_indentation(&mut self) -> Result<(), LexError> {
         self.at_line_start = false;
-        let mut indent = 0;
+        let mut indent = 0usize;
+
         while let Some(c) = self.peek() {
             if c == ' ' {
                 indent += 1;
@@ -291,150 +257,115 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        // Skip blank lines and comments
-        if self.peek() == Some('\n')
-            || self.peek() == Some('\r')
-            || self.peek() == Some('#')
-            || self.peek().is_none()
-        {
+        if matches!(self.peek(), Some('\n' | '\r' | '#')) || self.peek().is_none() {
             return Ok(());
         }
 
-        let last_indent = *self.indent_stack.last().unwrap();
+        let span = self.current_char_span();
+        let last_indent = self.indent_stack.last().copied().unwrap_or(0);
+
         if indent > last_indent {
             self.indent_stack.push(indent);
-            self.pending_tokens.push((
-                Token::Indent,
-                Span {
-                    line: self.line,
-                    col: self.col,
-                    len: 1,
-                },
-            ));
+            self.pending_tokens.push((Token::Indent, span));
         } else if indent < last_indent {
-            while indent < *self.indent_stack.last().unwrap() {
+            while indent < self.indent_stack.last().copied().unwrap_or(0) {
                 self.indent_stack.pop();
-                self.pending_tokens.push((
-                    Token::Dedent,
-                    Span {
-                        line: self.line,
-                        col: self.col,
-                        len: 1,
-                    },
-                ));
+                self.pending_tokens.push((Token::Dedent, span));
             }
-            if indent != *self.indent_stack.last().unwrap() {
-                return Err(LexError::new(
-                    format!(
-                        "Indentation error: expected {} spaces, got {}",
-                        self.indent_stack.last().unwrap(),
-                        indent
-                    ),
-                    Span {
-                        line: self.line,
-                        col: self.col,
-                        len: 1,
-                    },
-                ));
+
+            let expected = self.indent_stack.last().copied().unwrap_or(0);
+            if indent != expected {
+                return Err(LexError::indentation(expected, indent, span));
             }
         }
+
         Ok(())
     }
 
-    fn lex_string(
-        &mut self,
-        quote: char,
-        start_line: usize,
-        start_col: usize,
-    ) -> Result<(Token, Span), LexError> {
+    fn lex_string(&mut self, quote: char, start: usize) -> Result<(Token, Span), LexError> {
         let mut s = String::new();
-        while let Some(c) = self.advance() {
+
+        while let Some((idx, c)) = self.advance() {
             if c == quote {
-                let mut len = if self.line == start_line {
-                    self.col.saturating_sub(start_col)
-                } else {
-                    1
-                };
-                if len == 0 {
-                    len = 1;
-                }
-                return Ok((
-                    Token::Str(s),
-                    Span {
-                        line: start_line,
-                        col: start_col,
-                        len,
-                    },
-                ));
+                return Ok((Token::Str(s), Span::new(start, self.offset - start)));
             }
+
             if c == '\\' {
                 match self.advance() {
-                    Some('n') => s.push('\n'),
-                    Some('r') => s.push('\r'),
-                    Some('t') => s.push('\t'),
-                    Some('\\') => s.push('\\'),
-                    Some('"') => s.push('"'),
-                    Some('\'') => s.push('\''),
-                    Some(other) => s.push(other),
+                    Some((_, 'n')) => s.push('\n'),
+                    Some((_, 'r')) => s.push('\r'),
+                    Some((_, 't')) => s.push('\t'),
+                    Some((_, '\\')) => s.push('\\'),
+                    Some((_, '"')) => s.push('"'),
+                    Some((_, '\'')) => s.push('\''),
+                    Some((_, other)) => s.push(other),
                     None => {
-                        return Err(LexError::new(
-                            "Unterminated string escape",
-                            Span {
-                                line: start_line,
-                                col: start_col,
-                                len: 1,
-                            },
-                        ))
+                        return Err(LexError::unterminated_string_escape(Span::new(
+                            idx,
+                            self.source_text.len().saturating_sub(idx),
+                        )));
                     }
                 }
             } else {
                 s.push(c);
             }
         }
-        Err(LexError::new(
-            "Unterminated string",
-            Span {
-                line: start_line,
-                col: start_col,
-                len: 1,
-            },
-        ))
+
+        Err(LexError::unterminated_string(Span::new(
+            start,
+            self.source_text.len().saturating_sub(start),
+        )))
     }
 
-    fn lex_number(&mut self, first: char) -> Token {
+    fn lex_number(&mut self, first: char, start: usize) -> Result<Token, LexError> {
         let mut s = first.to_string();
         let mut is_float = false;
+
         while let Some(c) = self.peek() {
             if c.is_ascii_digit() {
-                s.push(self.advance().unwrap());
+                if let Some((_, ch)) = self.advance() {
+                    s.push(ch);
+                }
             } else if c == '.' && !is_float {
-                let mut next_next = self.source.clone();
-                next_next.next();
-                if next_next.next() == Some('.') {
+                let mut probe = self.chars.clone();
+                probe.next();
+                if matches!(probe.next(), Some((_, '.'))) {
                     break;
                 }
                 is_float = true;
-                s.push(self.advance().unwrap());
+                if let Some((_, ch)) = self.advance() {
+                    s.push(ch);
+                }
             } else {
                 break;
             }
         }
+
+        let span = Span::new(start, self.offset.saturating_sub(start));
         if is_float {
-            Token::Float(s.parse().unwrap())
+            s.parse::<f64>()
+                .map(Token::Float)
+                .map_err(|_| LexError::invalid_number(s.clone(), span))
         } else {
-            Token::Int(s.parse().unwrap())
+            s.parse::<i64>()
+                .map(Token::Int)
+                .map_err(|_| LexError::invalid_number(s, span))
         }
     }
 
     fn lex_identifier(&mut self, first: char) -> Token {
         let mut s = first.to_string();
+
         while let Some(c) = self.peek() {
             if c.is_alphanumeric() || c == '_' {
-                s.push(self.advance().unwrap());
+                if let Some((_, ch)) = self.advance() {
+                    s.push(ch);
+                }
             } else {
                 break;
             }
         }
+
         match s.as_str() {
             "fn" => Token::Fn,
             "cls" => Token::Cls,

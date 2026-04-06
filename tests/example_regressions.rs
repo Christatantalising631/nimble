@@ -85,8 +85,14 @@ fn collect_examples(root: &Path, out: &mut Vec<String>) {
 #[test]
 fn regex_examples_match_real_patterns() {
     let (stdout, _) = run_script("examples/stdlib/regex/extract.nmb", &[]);
-    assert!(stdout.contains("found matches: true"), "stdout was:\n{stdout}");
-    assert!(stdout.contains("first match: nimble 101"), "stdout was:\n{stdout}");
+    assert!(
+        stdout.contains("found matches: true"),
+        "stdout was:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("first match: nimble 101"),
+        "stdout was:\n{stdout}"
+    );
 }
 
 #[test]
@@ -121,7 +127,12 @@ fn os_args_exposes_script_args_only() {
 #[test]
 fn shipped_examples_typecheck() {
     let mut examples = Vec::new();
-    collect_examples(Path::new(env!("CARGO_MANIFEST_DIR")).join("examples").as_path(), &mut examples);
+    collect_examples(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("examples")
+            .as_path(),
+        &mut examples,
+    );
     assert!(!examples.is_empty(), "no examples found");
 
     for example in examples {
@@ -132,7 +143,12 @@ fn shipped_examples_typecheck() {
 #[test]
 fn shipped_non_network_examples_run() {
     let mut examples = Vec::new();
-    collect_examples(Path::new(env!("CARGO_MANIFEST_DIR")).join("examples").as_path(), &mut examples);
+    collect_examples(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("examples")
+            .as_path(),
+        &mut examples,
+    );
 
     for example in examples {
         if example.contains("/stdlib/net/") {
